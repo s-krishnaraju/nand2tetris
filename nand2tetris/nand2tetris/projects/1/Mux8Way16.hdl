@@ -1,0 +1,46 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/1/Mux8Way16.hdl
+/**
+ * 8-way 16-bit multiplexor:
+ * out = a if sel = 000
+ *       b if sel = 001
+ *       c if sel = 010
+ *       d if sel = 011
+ *       e if sel = 100
+ *       f if sel = 101
+ *       g if sel = 110
+ *       h if sel = 111
+ */
+CHIP Mux8Way16 {
+    IN a[16], b[16], c[16], d[16],
+       e[16], f[16], g[16], h[16],
+       sel[3];
+    OUT out[16];
+
+    PARTS:
+    Not(in = sel[2], out = not2);
+    Not(in = sel[0], out = not0);
+    Not(in = sel[1], out = not1);
+    ThreeToTwo(sel = sel, out = sel2);
+    Mux4Way16(a = a, b = b, c = c, d = d, sel = sel2, out =outmux );
+    Select16( sel = not2, in =outmux, out = out4way);
+    And(a = sel[2], b = sel[0], out = o2and0);
+    And(a = sel[1], b = sel[0], out = o1and0);
+    And(a = sel[2], b = sel[1], out = o2and1);
+    And(a = o1and0, b = sel[2], out = chooseh);
+    And(a = o2and1, b = not0, out = chooseg);
+    And(a = o2and0, b = not1, out = choosef);
+    And(a = not0, b = not1, out = not1andnot0);
+    And(a = not1andnot0, b = sel[2], out = choosee);
+    Select16(sel = choosee, in = e, out = oute );
+    Select16(sel = choosef, in = f, out = outf );
+    Select16(sel = chooseg, in = g, out = outg );
+    Select16(sel = chooseh, in = h, out = outh );
+    Or16(a = out4way, b = oute, out = out1);
+    Or16(a = out1,b = outf, out = out2 );
+    Or16(a = out2,b = outg, out = out3 );
+    Or16(a = out3,b = outh, out = out );
+}
+

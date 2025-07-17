@@ -1,0 +1,8 @@
+CHIP ThreeToTwo {
+    IN sel[3];
+    OUT out[2];
+
+    PARTS:
+    And(a = true, b = sel[0], out = out[0]);
+    And(a = true, b = sel[1], out = out[1]);
+}

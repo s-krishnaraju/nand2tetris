@@ -1,0 +1,8 @@
+CHIP TwoConds{
+       IN cond1, cond2, in;
+       OUT out;
+
+       PARTS:
+       And(a = cond1, b = cond2, out = sel);
+       And(a = sel, b = in, out = out );
+}

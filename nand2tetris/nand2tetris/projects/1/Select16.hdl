@@ -1,0 +1,21 @@
+CHIP Select16 {
+    IN sel, in[16];
+    OUT out[16];
+    PARTS: 
+    And(a=sel,b=in[0],  out = out[0]);
+    And(a=sel,b=in[1],  out = out[1]);
+    And(a=sel,b=in[2],  out = out[2]);
+    And(a=sel,b=in[3],  out = out[3]);
+    And(a=sel,b=in[4],  out = out[4]);
+    And(a=sel,b=in[5],  out = out[5]);
+    And(a=sel,b=in[6],  out = out[6]);
+    And(a=sel,b=in[7],  out = out[7]);
+    And(a=sel,b=in[8],  out = out[8]);
+    And(a=sel,b=in[9],  out = out[9]);
+    And(a=sel,b=in[10],  out = out[10]);
+    And(a=sel,b=in[11],  out = out[11]);
+    And(a=sel,b=in[12],  out = out[12]);
+    And(a=sel,b=in[13],  out = out[13]);
+    And(a=sel,b=in[14],  out = out[14]);
+    And(a=sel,b=in[15],  out = out[15]);
+ }

@@ -1,0 +1,40 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/1/DMux8Way.hdl
+/**
+ * 8-way demultiplexor:
+ * [a, b, c, d, e, f, g, h] = [in, 0,  0,  0,  0,  0,  0,  0] if sel = 000
+ *                            [0, in,  0,  0,  0,  0,  0,  0] if sel = 001
+ *                            [0,  0, in,  0,  0,  0,  0,  0] if sel = 010
+ *                            [0,  0,  0, in,  0,  0,  0,  0] if sel = 011
+ *                            [0,  0,  0,  0, in,  0,  0,  0] if sel = 100
+ *                            [0,  0,  0,  0,  0, in,  0,  0] if sel = 101
+ *                            [0,  0,  0,  0,  0,  0, in,  0] if sel = 110
+ *                            [0,  0,  0,  0,  0,  0,  0, in] if sel = 111
+ */
+CHIP DMux8Way {
+    IN in, sel[3];
+    OUT a, b, c, d, e, f, g, h;
+
+    PARTS:
+    Not(in = sel[0], out = not0);
+    Not(in = sel[1], out = not1);
+    Not(in= sel[2], out = not2);
+    And(a = not0, b = not1, out = choosea);
+    And(a = sel[0], b = not1, out = chooseb);
+    And(a = not0, b = sel[1], out = choosec);
+    And(a = sel[0], b = sel[1], out = choosed);
+    TwoConds(cond1 = not2, cond2 = choosea,in=in, out = a);
+    TwoConds(cond1 = not2, cond2 = chooseb, in=in,out = b);
+    TwoConds(cond1 = not2, cond2 = choosec, in=in,out = c);
+    TwoConds(cond1 = not2, cond2 = choosed, in=in,out = d);
+    And(a = not0, b = not1, out = choosee );
+    And(a = not1, b = sel[0], out = choosef );
+    And(a = sel[1], b = not0, out = chooseg );
+    And(a = sel[1], b = sel[0], out = chooseh );
+    TwoConds(cond1 = sel[2], cond2 = choosee, in=in,out = e);
+    TwoConds(cond1 = sel[2], cond2 = choosef, in=in,out = f);
+    TwoConds(cond1 = sel[2], cond2 = chooseg, in=in,out = g);
+    TwoConds(cond1 = sel[2], cond2 = chooseh, in=in,out = h);
+}
