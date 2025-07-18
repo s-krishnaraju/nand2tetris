@@ -7,29 +7,42 @@
 // (R0, R1, R2 refer to RAM[0], RAM[1], and RAM[2], respectively.)
 // The algorithm is based on repetitive addition.
 
-//// Replace this comment with your code.
+//get addition const
+@R1
+D=M
+@R4
+M=D
+//initialize to zero
 @0
 D=A
 @R2 
 M=D
-@R1 
+@R1
 M=D
 (LOOP)
-// end if 0
+//check done mult
 @R0
 D=M
 @END
-D;JEQ
-
+D;JLE
+// add constant
+@R4
+D=M
 @R1
-M = M + M
-// decrement
+M=D+M
+//decrement
 @R0
 M=M-1
+//loop
 @LOOP
 0;JMP
-
 (END)
-@END 
+//set output
+@R1 
+D=M
+@R2
+M=D
+(ENDLOOP)
+@ENDLOOP
 0;JMP
 
