@@ -117,7 +117,7 @@ output;
 set load 0,
 set address %X0345,		// Did not also write to lower RAM or Screen 
 eval, output;
-set address %X4345,
+set address %X4345, //I'm failing here
 eval, output;
 
 //// Clears the overwrite detection value from the screen

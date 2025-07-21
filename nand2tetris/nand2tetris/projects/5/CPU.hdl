@@ -32,5 +32,17 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-	//// Replace this comment with your code.
+    // Sets A register
+    Not(in=instruction[0],out=choosea)
+    ARegister(in=instruction,load=choosea,out=areg)
+
+
+    // Gets alu input
+    Mux16(a=inM,b=areg,sel=instruction[3],out=aluinput)
+
+
+    DRegister(in=,load=,out=dreg)
+
+    ALU(x=,y=,zx=,nx=,zy=,ny=,f=,no=,out=,zr=,ng=)
+    PC(in=,inc=,load=,reset=)
 }

@@ -25,21 +25,20 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // we somehow need to be able to determine which memory to touch
-    // pick keyboard if address[0] and address[1] are both turned on
-    // otherwise pick screen if address[0] turned on
-    // otherwise pick ram
-    // if MSB off ram
-    Mux16(a=none, b =oldram, sel = address[0])
-    // if addr[0] and addr[1] on then keyboard else screen
-    Mux16(a = oldscreen, b = oldkeyboard, sel=address[1])
+    Not(in=address[14], out=chooseram);
+    And(a=chooseram,b=load,out=loadram);
+    
+    And(a=address[14],b=address[13],out=choosekbd);
+    
+    Or(a=choosekbd,b=chooseram,out=notscreen);
+    Not(in=notscreen,out=choosescreen);
+    And(a=choosescreen,b=load,out=loadscreen);
 
-    RAM16K(in=, load=, address=, out=)
-    Screen(in=, load=, address=, out=)
-    Keyboard(in=, load=, out=)
 
-    // maybe use these to track previous state
-    Register()
-    Register()
-    Register()
+    RAM16K(in=in, load=loadram, address=address[0..13], out=outram);
+    Screen(in=in, load=loadscreen, address=address[0..12], out=outscreen);
+    Keyboard(out=outkbr);
+
+    Mux16(a=outscreen, b=outram, sel=chooseram, out=out1);
+    Mux16(a=out1,b=outkbr,sel=choosekbd,out=out);
 }
