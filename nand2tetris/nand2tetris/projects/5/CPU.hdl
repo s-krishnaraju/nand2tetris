@@ -32,17 +32,74 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // Sets A register
-    Not(in=instruction[0],out=choosea)
-    ARegister(in=instruction,load=choosea,out=areg)
+    // Get ALU input
+    Mux16(a=inM,b=Areg,sel=instruction[3],out=ALUInput);
 
+    // Calc compute
+    ALU(x=Dreg,y=ALUInput,zx=instruction[4],nx=instruction[5],zy=instruction[6],ny=instruction[7],f=instruction[8],no=instruction[9],out=ALUOut,zr=EqZero,ng=LessZero);
+    And16(a=ALUOut,b=True,out=outM);
 
-    // Gets alu input
-    Mux16(a=inM,b=areg,sel=instruction[3],out=aluinput)
+    Not(in=instruction[0],out=chooseAInstruct);
 
+    // Handle D
+    And(a=instruction[0],b=instruction[10],out=writeD);
+    DRegister(in=ALUOut,load=writeD,out=Dreg);
 
-    DRegister(in=,load=,out=dreg)
+    // Handle M
+    And(a=instruction[0],b=instruction[12],out=writeM);
 
-    ALU(x=,y=,zx=,nx=,zy=,ny=,f=,no=,out=,zr=,ng=)
-    PC(in=,inc=,load=,reset=)
+    // Set input for A
+    Mux16(a=ALUOut,b=instruction,sel=chooseAInstruct,out=inputA);
+    // if C-instruct and d bit on 
+    And(a=instruction[0],b=instruction[11],out=destA);
+    // If A-instruct or destA write to A
+    Or(a=chooseAInstruct,b=destA,out=writeA);
+    ARegister(in=inputA,load=writeA,out=Areg);
+    And16(a=Areg,b=True,out[0..15]=addressM);
+    
+    Not(in=instruction[13],out=not13); 
+    Not(in=instruction[14],out=not14); 
+    Not(in=instruction[15],out=not15); 
+    Not(in=EqZero,out=NotEqZero);
+    Not(in=LessZero,out=NotLessZero);
+
+    //NULL (we don't need to check)
+    //And(a=not13,b=not14,out=null1);
+    //And(a=null1,b=not15,out=null);
+    //Not(in=null,out=notnull);
+
+    //JMP
+    And(a=instruction[13],b=instruction[14],out=jmp1);
+    And(a=a,b=instruction[15],out=jmp);
+    //JGT
+    And(a=not13,b=not14,out=jgt1);
+    And(a=jgt1,b=instruction[15],out=jgt2);
+    And(a=NotEqZero,b=NotLessZero,out=jgt3);
+    And(a=jgt2,b=jgt3,out=jgt);
+    //JEQ
+    And(a=not13,b=instruction[14],out=jeq1);
+    And(a=jeq1,b=not15,out=jeq2);
+    And(a=jeq2,b=EqZero,out=jeq);
+    //JLT
+    And(a=instruction[13],b=not14,out=jlt1);
+    And(a=jlt1,b=not15,out=jlt2);
+    And(a=LessZero,b=NotEqZero,out=jlt3);
+    And(a=jlt2,b=jlt3,out=jlt);
+    //JNE
+    And(a=instruction[13],b=not14,out=jne1);
+    And(a=jne1,b=instruction[15],out=jne2);
+    And(a=jne2,b=NotEqZero,out=jne);
+    //JLE
+    And(a=instruction[13],b=instruction[14],out=jlt1);
+    And(a=jlt1,b=not15,out=jlt2);
+    Or(a=LessZero,b=EqZero,out=jle);
+    
+    Or(a=jmp,b=jle,out=out1);
+    Or(a=out1,b=jgt,out=out2);
+    Or(a=out2,b=jeq,out=out3);
+    Or(a=out3,b=jlt,out=out4);
+    Or(a=out4,b=jne,out=out5);
+    And(a=out5,b=instruction[0],out=loadPC);
+
+    PC(in=Areg,inc=True,load=loadPC,reset=reset,out[0..15]=pc);
 }
