@@ -1,0 +1,1 @@
+/home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/6/assembler/target/debug/assembler: /home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/6/assembler/src/main.rs
