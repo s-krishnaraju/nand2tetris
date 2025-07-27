@@ -1,1 +1,1 @@
-C:\Users\skrishnaraju3\programming\nand2tetris\nand2tetris\nand2tetris\projects\7\translator\target\debug\translator.exe: C:\Users\skrishnaraju3\programming\nand2tetris\nand2tetris\nand2tetris\projects\7\translator\src\main.rs
+/home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/7/translator/target/debug/translator: /home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/7/translator/src/main.rs

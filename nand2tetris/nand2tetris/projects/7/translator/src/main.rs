@@ -2,18 +2,16 @@ use std::collections::VecDeque;
 use std::env;
 use std::fs;
 
-const BASE_STACK_ADDR: u16 = 256;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
+    let file_name = file_path.split("/").last().unwrap().replace(".vm", "");
 
     let contents = fs::read_to_string(file_path).expect("Can't read file!");
+    let asm = translate_bytecode(&contents, &file_name);
 
-    let asm = translate_bytecode(&contents);
     let file_path = file_path.replace(".vm", ".asm");
     fs::write(file_path, &asm);
-    println!("{}", &asm);
 }
 
 struct OP {}
@@ -41,14 +39,25 @@ impl SEGMENT {
     const CONSTANT: &str = "constant";
     const LCL: &str = "local";
     const ARG: &str = "argument";
-    const TMP: &str = "tmp";
+    const TEMP: &str = "temp";
     const STATIC: &str = "static";
     const POINTER: &str = "pointer";
     const THIS: &str = "this";
     const THAT: &str = "that";
+
+    fn translate(segment: &str) -> String {
+        match segment {
+            SEGMENT::LCL => "LCL",
+            SEGMENT::ARG => "ARG",
+            SEGMENT::THIS => "THIS",
+            SEGMENT::THAT => "THAT",
+            _ => "",
+        }
+        .to_string()
+    }
 }
 
-fn translate_bytecode(contents: &str) -> String {
+fn translate_bytecode(contents: &str, file_name: &str) -> String {
     let mut asm = String::new();
     let mut comparison_count = 0;
 
@@ -75,12 +84,12 @@ fn translate_bytecode(contents: &str) -> String {
             OP::PUSH => {
                 let segment = tokens.pop_front().unwrap();
                 let idx = tokens.pop_front().unwrap();
-                push(segment, idx)
+                push(segment, idx, file_name)
             }
             OP::POP => {
                 let segment = tokens.pop_front().unwrap();
                 let idx = tokens.pop_front().unwrap();
-                pop(segment, idx)
+                pop(segment, idx, file_name)
             }
             OP::GT => greater_than(comparison_count),
             OP::LT => less_than(comparison_count),
@@ -100,11 +109,22 @@ fn translate_bytecode(contents: &str) -> String {
                 panic!("Unable to match line: {}", line);
             }
         };
-
+        asm.push_str(&format!("//{}\n", &line));
         asm.push_str(&instructions);
     }
 
+    asm.push_str(&add_terminator());
     return asm;
+}
+
+fn call() {}
+fn return_op() {}
+fn if_op() {}
+fn goto() {}
+fn function() {}
+
+fn add_terminator() -> String {
+    format!("(END)\n@END\n0;JMP\n")
 }
 
 fn neg() -> String {
@@ -125,34 +145,48 @@ fn not() -> String {
     return asm;
 }
 
-fn make_comparison(count: usize) -> String {
-    format!("\nD=0\n@ENDTRUE{count}\n0;JMP\n(TRUE{count})\nD=-1\n(ENDTRUE{count})")
+// Sets D=-1 if true else D=0
+fn set_compare_result(count: usize) -> String {
+    format!("D=0\n@FALSE{count}\n0;JMP\n(TRUE{count})\nD=-1\n(FALSE{count})\n")
 }
 
 fn greater_than(count: usize) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-
-    let pop_and_or = format!("@SP\nM=M-1\n@SP\nA=M\nD=D|M\n");
-
-    asm.push_str(&pop_and_or);
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JGT\n");
+    asm.push_str(&pop_and_jmp);
+    let comparison = set_compare_result(count);
+    asm.push_str(&comparison);
     asm.push_str(&push_to_stack());
     return asm;
 }
 
 fn less_than(count: usize) -> String {
-    panic!()
+    let mut asm = String::new();
+    asm.push_str(&pop_from_stack());
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JLT\n");
+    asm.push_str(&pop_and_jmp);
+    let comparison = set_compare_result(count);
+    asm.push_str(&comparison);
+    asm.push_str(&push_to_stack());
+    return asm;
 }
 
 fn equal_to(count: usize) -> String {
     let mut asm = String::new();
-    asm
+    asm.push_str(&pop_from_stack());
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JEQ\n");
+    asm.push_str(&pop_and_jmp);
+    let comparison = set_compare_result(count);
+    asm.push_str(&comparison);
+    asm.push_str(&push_to_stack());
+    return asm;
 }
 
 fn or() -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_or = format!("@SP\nM=M-1\n@SP\nA=M\nD=D|M\n");
+    let pop_and_or = format!("@SP\nM=M-1\n@SP\nA=M\nD=M|D\n");
     asm.push_str(&pop_and_or);
     asm.push_str(&push_to_stack());
     return asm;
@@ -161,7 +195,7 @@ fn or() -> String {
 fn and() -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_and = format!("@SP\nM=M-1\n@SP\nA=M\nD=D&M\n");
+    let pop_and_and = format!("@SP\nM=M-1\n@SP\nA=M\nD=M&D\n");
     asm.push_str(&pop_and_and);
     asm.push_str(&push_to_stack());
     return asm;
@@ -170,7 +204,7 @@ fn and() -> String {
 fn sub() -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_sub = format!("@SP\nM=M-1\n@SP\nA=M\nD=D-M\n");
+    let pop_and_sub = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n");
     asm.push_str(&pop_and_sub);
     asm.push_str(&push_to_stack());
     return asm;
@@ -185,70 +219,83 @@ fn add() -> String {
     return asm;
 }
 
-fn pop(segment: &str, idx: &str) -> String {
+fn pop(segment: &str, idx: &str, file_name: &str) -> String {
     if segment == SEGMENT::CONSTANT {
-        panic!("Received constant as segment for pop");
+        panic!("Can't pop to a constant!");
     }
 
     let mut asm = String::new();
-    asm.push_str(&pop_from_stack());
-    asm.push_str(&load_segment(segment, idx));
-    let write_to_segment = format!("M=D\n");
-    asm.push_str(&write_to_segment);
-    return asm;
-}
+    let offset = idx.parse::<u8>().expect("Failed to parse segment idx");
 
-fn push(segment: &str, idx: &str) -> String {
-    let mut asm = String::new();
-
-    let load_to_d = if segment == SEGMENT::CONSTANT {
-        format!("@{idx}\nD=A\n")
-    } else {
-        format!("{}\nD=M\n", load_segment(segment, idx))
-    };
-
-    asm.push_str(&load_to_d);
-
-    // overwrite current SP w/ D reg and then increment
-    let push_to_stack = push_to_stack();
-
-    asm.push_str(&push_to_stack);
-    return asm;
-}
-
-// Loads into A register addr of segment
-fn load_segment(segment: &str, idx: &str) -> String {
-    let offset = idx.parse::<u8>().expect("Failed to parse segment value");
-    let add_offset = format!("D=A\nA={offset}\nD=D+A\nA=D\n");
-
-    return match segment {
-        SEGMENT::LCL => {
-            format!("@LCL\n{add_offset}")
+    match segment {
+        SEGMENT::LCL | SEGMENT::ARG | SEGMENT::THIS | SEGMENT::THAT => {
+            let segment = SEGMENT::translate(segment);
+            let add_offset = format!("@{offset}\nD=A\n@{segment}\nM=M+D\n");
+            asm.push_str(&add_offset);
+            asm.push_str(&pop_from_stack());
+            let write_to_segment = &format!("@{segment}\nA=M\nM=D\n");
+            asm.push_str(&write_to_segment);
+            let sub_offset = format!("@{offset}\nD=A\n@{segment}\nM=M-D\n");
+            asm.push_str(&sub_offset);
         }
-        SEGMENT::ARG => {
-            format!("@ARG\n{add_offset}")
-        }
-        SEGMENT::THIS => {
-            format!("@THIS\n{add_offset}")
-        }
-        SEGMENT::THAT => {
-            format!("@THAT\n{add_offset}")
-        }
-        SEGMENT::TMP => {
+        SEGMENT::TEMP => {
+            asm.push_str(&pop_from_stack());
             let addr = 5 + offset;
-            format!("@{addr}\n")
+            asm.push_str(&format!("@{addr}\nM=D\n"));
         }
         SEGMENT::STATIC => {
-            // use fname instead of static
-            format!("@static.{idx}\n")
+            asm.push_str(&pop_from_stack());
+            asm.push_str(&format!("@{file_name}.{idx}\nM=D\n"));
         }
-        SEGMENT::POINTER => match offset {
-            0 => "@THIS\n".to_string(),
-            1 => "@THAT\n".to_string(),
-            _ => panic!("Couldn't match offset for pointer"),
-        },
-        _ => panic!("Couldn't match segment"),
+        SEGMENT::POINTER => {
+            asm.push_str(&pop_from_stack());
+            let segment = match offset {
+                0 => "THIS\n".to_string(),
+                1 => "THAT\n".to_string(),
+                _ => panic!("Couldn't match offset for pointer"),
+            };
+            asm.push_str(&format!("@{segment}\nM=D\n"));
+        }
+        _ => panic!("Invalid arg for pop instruction"),
     };
+
+    return asm;
+}
+fn push(segment: &str, idx: &str, file_name: &str) -> String {
+    let mut asm = String::new();
+
+    if segment == SEGMENT::CONSTANT {
+        let load_from_constant = format!("@{idx}\nD=A\n");
+        asm.push_str(&load_from_constant);
+    } else {
+        let offset = idx.parse::<u8>().expect("Failed to parse segment value");
+        let load_from_segment = match segment {
+            SEGMENT::LCL | SEGMENT::ARG | SEGMENT::THIS | SEGMENT::THAT => {
+                let segment = SEGMENT::translate(segment);
+                let offset_addr = format!("@{offset}\nD=A\n@{segment}\nD=D+M\nA=D\n");
+                offset_addr
+            }
+            SEGMENT::TEMP => {
+                let addr = 5 + offset;
+                format!("@{addr}\n")
+            }
+            SEGMENT::STATIC => {
+                format!("@{file_name}.{idx}\n")
+            }
+            SEGMENT::POINTER => match offset {
+                0 => "@THIS\n".to_string(),
+                1 => "@THAT\n".to_string(),
+                _ => panic!("Couldn't match offset for pointer"),
+            },
+            _ => "".to_string(),
+        };
+        asm.push_str(&load_from_segment);
+        asm.push_str("D=M\n");
+    }
+
+    let push_to_stack = push_to_stack();
+    asm.push_str(&push_to_stack);
+    return asm;
 }
 
 // Decrement then pop val to D reg

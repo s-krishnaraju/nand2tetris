@@ -1,0 +1,9 @@
+# Rust
+target/
+
+# Rust-related files
+*.rs.bk
+*.pdb
+
+# Dependencies (if not committing Cargo.lock for executables)
+# Cargo.lock
