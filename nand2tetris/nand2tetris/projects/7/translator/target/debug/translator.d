@@ -1,1 +1,0 @@
-/home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/7/translator/target/debug/translator: /home/senthoor/programming/nand2tetris/nand2tetris/nand2tetris/projects/7/translator/src/main.rs

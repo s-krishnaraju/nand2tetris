@@ -11,7 +11,7 @@ fn main() {
     let asm = translate_bytecode(&contents, &file_name);
 
     let file_path = file_path.replace(".vm", ".asm");
-    fs::write(file_path, &asm);
+    fs::write(file_path, &asm).expect("Couldn't write to file!");
 }
 
 struct OP {}
@@ -91,9 +91,9 @@ fn translate_bytecode(contents: &str, file_name: &str) -> String {
                 let idx = tokens.pop_front().unwrap();
                 pop(segment, idx, file_name)
             }
-            OP::GT => greater_than(comparison_count),
-            OP::LT => less_than(comparison_count),
-            OP::EQ => equal_to(comparison_count),
+            OP::GT => greater_than(file_name, comparison_count),
+            OP::LT => less_than(file_name, comparison_count),
+            OP::EQ => equal_to(file_name, comparison_count),
             OP::ADD => add(),
             OP::SUB => sub(),
             OP::NEG => neg(),
@@ -146,38 +146,40 @@ fn not() -> String {
 }
 
 // Sets D=-1 if true else D=0
-fn set_compare_result(count: usize) -> String {
-    format!("D=0\n@FALSE{count}\n0;JMP\n(TRUE{count})\nD=-1\n(FALSE{count})\n")
+fn set_compare_result(file_name: &str, count: usize) -> String {
+    format!(
+        "D=0\n@{file_name}.FALSE{count}\n0;JMP\n({file_name}.TRUE{count})\nD=-1\n({file_name}.FALSE{count})\n"
+    )
 }
 
-fn greater_than(count: usize) -> String {
+fn greater_than(file_name: &str, count: usize) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JGT\n");
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JGT\n");
     asm.push_str(&pop_and_jmp);
-    let comparison = set_compare_result(count);
+    let comparison = set_compare_result(file_name, count);
     asm.push_str(&comparison);
     asm.push_str(&push_to_stack());
     return asm;
 }
 
-fn less_than(count: usize) -> String {
+fn less_than(file_name: &str, count: usize) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JLT\n");
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JLT\n");
     asm.push_str(&pop_and_jmp);
-    let comparison = set_compare_result(count);
+    let comparison = set_compare_result(file_name, count);
     asm.push_str(&comparison);
     asm.push_str(&push_to_stack());
     return asm;
 }
 
-fn equal_to(count: usize) -> String {
+fn equal_to(file_name: &str, count: usize) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
-    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@TRUE{count}\nD;JEQ\n");
+    let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JEQ\n");
     asm.push_str(&pop_and_jmp);
-    let comparison = set_compare_result(count);
+    let comparison = set_compare_result(file_name, count);
     asm.push_str(&comparison);
     asm.push_str(&push_to_stack());
     return asm;
