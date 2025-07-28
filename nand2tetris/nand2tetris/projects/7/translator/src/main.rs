@@ -1,18 +1,7 @@
 use std::collections::VecDeque;
 use std::env;
+use std::fmt::format;
 use std::fs;
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let file_path = &args[1];
-    let file_name = file_path.split("/").last().unwrap().replace(".vm", "");
-
-    let contents = fs::read_to_string(file_path).expect("Can't read file!");
-    let asm = translate_bytecode(&contents, &file_name);
-
-    let file_path = file_path.replace(".vm", ".asm");
-    fs::write(file_path, &asm).expect("Couldn't write to file!");
-}
 
 struct OP {}
 impl OP {
@@ -27,8 +16,9 @@ impl OP {
     const AND: &str = "and";
     const OR: &str = "or";
     const NOT: &str = "not";
+    const LABEL: &str = "label";
     const GOTO: &str = "goto";
-    const IF: &str = "if";
+    const IF_GOTO: &str = "if-goto";
     const FUNCTION: &str = "function";
     const RETURN: &str = "return";
     const CALL: &str = "call";
@@ -57,9 +47,46 @@ impl SEGMENT {
     }
 }
 
-fn translate_bytecode(contents: &str, file_name: &str) -> String {
+fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    // TODO: if directory given than look for all .vm files
+    // then translate each .vm to asm and combine all into one and write
+    let file_path = &args[1];
+    let file_name = file_path.split("/").last().unwrap().replace(".vm", "");
+
+    let mut call_counter: u32 = 0;
+    let mut comparison_counter: u32 = 0;
+
+    let contents = fs::read_to_string(file_path).expect("Can't read file!");
     let mut asm = String::new();
-    let mut comparison_count = 0;
+    asm.push_str(&sys_init());
+
+    let translated_bytecode = translate_bytecode(
+        &contents,
+        &file_name,
+        &mut comparison_counter,
+        &mut call_counter,
+    );
+
+    let file_path = file_path.replace(".vm", ".asm");
+    fs::write(file_path, &asm).expect("Couldn't write to file!");
+}
+
+const BASE_STACK_ADDR: usize = 256;
+fn sys_init() -> String{
+    format!("@SP\nM={}\n@Sys.init\n0;JMP\n", BASE_STACK_ADDR)
+}
+
+
+fn translate_bytecode(
+    contents: &str,
+    file_name: &str,
+    comparison_counter: &mut u32,
+    call_counter: &mut u32,
+) -> String {
+    let mut asm = String::new();
+    let mut func_name = String::new();
 
     for line in contents.lines() {
         let mut tokens: VecDeque<&str> = line.trim().split_whitespace().collect();
@@ -75,8 +102,12 @@ fn translate_bytecode(contents: &str, file_name: &str) -> String {
 
         match first {
             OP::GT | OP::EQ | OP::LT => {
-                comparison_count += 1;
+                *comparison_counter += 1;
             }
+            OP::CALL => {
+                *call_counter += 1;
+            }
+
             _ => {}
         }
 
@@ -91,20 +122,46 @@ fn translate_bytecode(contents: &str, file_name: &str) -> String {
                 let idx = tokens.pop_front().unwrap();
                 pop(segment, idx, file_name)
             }
-            OP::GT => greater_than(file_name, comparison_count),
-            OP::LT => less_than(file_name, comparison_count),
-            OP::EQ => equal_to(file_name, comparison_count),
+            OP::GT => greater_than(file_name, *comparison_counter),
+            OP::LT => less_than(file_name, *comparison_counter),
+            OP::EQ => equal_to(file_name, *comparison_counter),
             OP::ADD => add(),
             OP::SUB => sub(),
             OP::NEG => neg(),
             OP::AND => and(),
             OP::OR => or(),
             OP::NOT => not(),
-            // OP::GOTO => {}
-            // OP::IF => {}
-            // OP::FUNCTION => {}
-            // OP::RETURN => {}
-            // OP::CALL => {}
+            OP::LABEL => {
+                let label = tokens.pop_front().expect("Expected label");
+                write_label(label, &func_name)
+            }
+            OP::GOTO => {
+                let label = tokens.pop_front().expect("Expected label");
+                write_goto(label, &func_name)
+            }
+            OP::IF_GOTO => {
+                let label = tokens.pop_front().expect("Expected label");
+                write_if_goto(label, &func_name)
+            }
+            OP::FUNCTION => {
+                func_name = tokens
+                    .pop_front()
+                    .expect("No function name provided")
+                    .to_string();
+                let num_vars = tokens
+                    .pop_front()
+                    .expect("Num of local variables not provided")
+                    .parse::<usize>()
+                    .expect("Provide a number for the # of local vars");
+
+                write_function(&func_name, num_vars)
+            }
+            OP::RETURN => write_return(),
+            OP::CALL => {
+                let called_func = tokens.pop_front().expect("No function name provided")
+                let num_args = tokens.pop_front().expect("# of args not provided").parse::<usize>().expect("Provide a number for # of args");
+                write_call(called_func, num_args)
+            }
             _ => {
                 panic!("Unable to match line: {}", line);
             }
@@ -117,11 +174,90 @@ fn translate_bytecode(contents: &str, file_name: &str) -> String {
     return asm;
 }
 
-fn call() {}
-fn return_op() {}
-fn if_op() {}
-fn goto() {}
-fn function() {}
+fn write_call(call_counter: &u32, func_name: &str ,called_func: &str, num_args: usize) -> String {
+    let mut asm = String::new();
+    let ret_addr = format!("{}$ret{}", func_name, call_counter);
+    
+    // Save caller function frame onto stack
+    let push_ret_addr = format!("@{}\nD=A\n{}\n", ret_addr, push_to_stack());
+    let lcl = format!("@LCL\nD=M\n{}\n", push_to_stack());
+    let arg = format!("@ARG\nD=M\n{}\n", push_to_stack());
+    let this = format!("@THIS\nD=M\n{}\n", push_to_stack());
+    let that = format!("@THAT\nD=M\n{}\n", push_to_stack());
+    asm.push_str(&push_ret_addr);
+    asm.push_str(&lcl);
+    asm.push_str(&arg);
+    asm.push_str(&this);
+    asm.push_str(&that);
+
+    // Init called function frame
+    let init_arg = format!("@SP\nD=M\n@5\nD=D-A\n@{num_args}\nD=D-A\n@ARG\nM=D\n");
+    let init_lcl = format!("@SP\nD=M\n@LCL\nM=D\n");
+    asm.push_str(&init_arg);
+    asm.push_str(&init_lcl);
+
+    // Jump to function and generate return addr label
+    let jmp_to_func = format!("@{called_func}\n0;JMP\n");
+    asm.push_str(&jmp_to_func);
+    let ret_addr_label = format!("({ret_addr})\n");
+    asm.push_str(&ret_addr_label);
+
+    return asm;
+}
+fn write_return() -> String {
+    let mut asm = String::new();
+
+    // Repositions stack ptr to point to before the function frame at first arg
+    // This way we don't need to pop all the frame data/args we pushed
+    let set_sp = format!("@ARG\nD=M+1\n@SP\nM=D\n");
+    // Sets first arg that stack ptr is at to the return value 
+    let return_val = format!("{}\n@ARG\nA=M\nM=D\n", pop_from_stack());
+
+    asm.push_str(&set_sp);
+    asm.push_str(&return_val);
+
+    // tmp variable we set to end of func frame
+    let frame = format!("@LCL\nD=M\n@frame\nM=D\n");
+    asm.push_str(&frame);
+    // Get back saved values that we pushed to stack before calling func
+    let that = format!("@1\nD=A\n@frame\nA=M-D\nD=M\n@THAT\nM=D\n");
+    let this = format!("@2\nD=A\n@frame\nA=M-D\nD=M\n@THIS\nM=D\n");
+    let arg = format!("@3\nD=A\n@frame\nA=M-D\nD=M\n@ARG\nM=D\n");
+    let lcl = format!("@4\nD=A\n@frame\nA=M-D\nD=M\n@LCL\nM=D\n");
+    // stores the return addr in a tmp var
+    let ret_addr = format!("@5\nD=A\n@frame\nA=M-D\nD=M\n@retAddr\nM=D\n");
+    asm.push_str(&that);
+    asm.push_str(&this);
+    asm.push_str(&arg);
+    asm.push_str(&lcl);
+    asm.push_str(&ret_addr);
+
+    let return_jmp = format!("@retAddr\n0;JMP\n");
+    asm.push_str(&return_jmp);
+
+    return asm;
+}
+
+fn write_label(label: &str, func_name: &str) -> String {
+    format!("({}${})\n", func_name, label)
+}
+fn write_goto(label: &str, func_name: &str) -> String {
+    format!("@{}${}\n0;JMP\n", func_name, label)
+}
+fn write_if_goto(label: &str, func_name: &str) -> String {
+    // jump if val on stack is -1 (true)
+    format!("{}\n@{}${}\nD;JNE\n", pop_from_stack(), func_name, label)
+}
+fn write_function(func_name: &str, num_vars: usize) -> String {
+    let mut asm = format!("({func_name})\n");
+    // n vars times push 0 which initialize thme
+    for _ in 0..num_vars {
+        let init = format!("D=0\n{}\n", push_to_stack());
+        asm.push_str(&init);
+    }
+
+    return asm;
+}
 
 fn add_terminator() -> String {
     format!("(END)\n@END\n0;JMP\n")
@@ -146,13 +282,13 @@ fn not() -> String {
 }
 
 // Sets D=-1 if true else D=0
-fn set_compare_result(file_name: &str, count: usize) -> String {
+fn set_compare_result(file_name: &str, count: u32) -> String {
     format!(
         "D=0\n@{file_name}.FALSE{count}\n0;JMP\n({file_name}.TRUE{count})\nD=-1\n({file_name}.FALSE{count})\n"
     )
 }
 
-fn greater_than(file_name: &str, count: usize) -> String {
+fn greater_than(file_name: &str, count: u32) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
     let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JGT\n");
@@ -163,7 +299,7 @@ fn greater_than(file_name: &str, count: usize) -> String {
     return asm;
 }
 
-fn less_than(file_name: &str, count: usize) -> String {
+fn less_than(file_name: &str, count: u32) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
     let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JLT\n");
@@ -174,7 +310,7 @@ fn less_than(file_name: &str, count: usize) -> String {
     return asm;
 }
 
-fn equal_to(file_name: &str, count: usize) -> String {
+fn equal_to(file_name: &str, count: u32) -> String {
     let mut asm = String::new();
     asm.push_str(&pop_from_stack());
     let pop_and_jmp = format!("@SP\nM=M-1\n@SP\nA=M\nD=M-D\n@{file_name}.TRUE{count}\nD;JEQ\n");
