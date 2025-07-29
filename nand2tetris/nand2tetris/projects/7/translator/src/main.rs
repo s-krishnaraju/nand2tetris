@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::env;
-use std::fmt::format;
 use std::fs;
 
 struct OP {}
@@ -49,35 +48,73 @@ impl SEGMENT {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    // TODO: if directory given than look for all .vm files
-    // then translate each .vm to asm and combine all into one and write
     let file_path = &args[1];
-    let file_name = file_path.split("/").last().unwrap().replace(".vm", "");
 
     let mut call_counter: u32 = 0;
     let mut comparison_counter: u32 = 0;
 
-    let contents = fs::read_to_string(file_path).expect("Can't read file!");
     let mut asm = String::new();
-    asm.push_str(&sys_init());
 
-    let translated_bytecode = translate_bytecode(
-        &contents,
-        &file_name,
-        &mut comparison_counter,
-        &mut call_counter,
-    );
+    if file_path.contains(".vm") {
+        let contents = fs::read_to_string(file_path).expect("Can't read file!");
+        let file_name = file_path.split("/").last().unwrap().replace(".vm", "");
+        let translated_bytecode = translate_bytecode(
+            &contents,
+            &file_name,
+            &mut comparison_counter,
+            &mut call_counter,
+        );
+        asm.push_str(&translated_bytecode);
+        asm.push_str(&add_terminator());
+        let file = file_path.replace(".vm", ".asm");
+        fs::write(file, &asm).expect("Couldn't write to file");
+    } else {
+        let paths = fs::read_dir(file_path).expect("Couldn't read directory");
+        asm.push_str(&call_sys_init());
+        for path in paths {
+            if let Ok(path) = path {
+                if let Ok(file_name) = path.file_name().into_string() {
+                    if file_name.contains(".vm") {
+                        dbg!(&file_name);
+                        let contents = fs::read_to_string(path.path()).expect("Can't read file!");
+                        let file_name = file_name.replace(".vm", "");
+                        let translated_bytecode = translate_bytecode(
+                            &contents,
+                            &file_name,
+                            &mut comparison_counter,
+                            &mut call_counter,
+                        );
+                        asm.push_str(&translated_bytecode);
+                    }
+                }
+            }
+        }
 
-    let file_path = file_path.replace(".vm", ".asm");
-    fs::write(file_path, &asm).expect("Couldn't write to file!");
+        asm.push_str(&add_terminator());
+        let mut split: Vec<&str> = file_path.trim().split("/").collect();
+        dbg!(&split);
+
+        if let Some(dir_name) = split.last() {
+            if dir_name.is_empty() {
+                split.pop();
+            }
+            let file_name = split.last().expect("Couldn't get directory name");
+            let mut file_path = split.join("/");
+            file_path.push_str(&format!("/{file_name}.asm"));
+            fs::write(file_path, &asm).expect("Couldn't write to file");
+        }
+    }
 }
 
 const BASE_STACK_ADDR: usize = 256;
-fn sys_init() -> String{
-    format!("@SP\nM={}\n@Sys.init\n0;JMP\n", BASE_STACK_ADDR)
+fn call_sys_init() -> String {
+    let mut asm = String::new();
+    let init_sp = format!("@{BASE_STACK_ADDR}\nD=A\n@SP\nM=D\n");
+    let count: u32 = 0;
+    asm.push_str(&init_sp);
+    asm.push_str(&write_call(&count, "INIT", "Sys.init", 0));
+    asm
 }
-
 
 fn translate_bytecode(
     contents: &str,
@@ -158,9 +195,13 @@ fn translate_bytecode(
             }
             OP::RETURN => write_return(),
             OP::CALL => {
-                let called_func = tokens.pop_front().expect("No function name provided")
-                let num_args = tokens.pop_front().expect("# of args not provided").parse::<usize>().expect("Provide a number for # of args");
-                write_call(called_func, num_args)
+                let called_func = tokens.pop_front().expect("No function name provided");
+                let num_args = tokens
+                    .pop_front()
+                    .expect("# of args not provided")
+                    .parse::<usize>()
+                    .expect("Provide a number for # of args");
+                write_call(&call_counter, &func_name, called_func, num_args)
             }
             _ => {
                 panic!("Unable to match line: {}", line);
@@ -170,14 +211,13 @@ fn translate_bytecode(
         asm.push_str(&instructions);
     }
 
-    asm.push_str(&add_terminator());
     return asm;
 }
 
-fn write_call(call_counter: &u32, func_name: &str ,called_func: &str, num_args: usize) -> String {
+fn write_call(call_counter: &u32, func_name: &str, called_func: &str, num_args: usize) -> String {
     let mut asm = String::new();
     let ret_addr = format!("{}$ret{}", func_name, call_counter);
-    
+
     // Save caller function frame onto stack
     let push_ret_addr = format!("@{}\nD=A\n{}\n", ret_addr, push_to_stack());
     let lcl = format!("@LCL\nD=M\n{}\n", push_to_stack());
@@ -207,32 +247,32 @@ fn write_call(call_counter: &u32, func_name: &str ,called_func: &str, num_args: 
 fn write_return() -> String {
     let mut asm = String::new();
 
-    // Repositions stack ptr to point to before the function frame at first arg
-    // This way we don't need to pop all the frame data/args we pushed
-    let set_sp = format!("@ARG\nD=M+1\n@SP\nM=D\n");
-    // Sets first arg that stack ptr is at to the return value 
-    let return_val = format!("{}\n@ARG\nA=M\nM=D\n", pop_from_stack());
-
-    asm.push_str(&set_sp);
-    asm.push_str(&return_val);
-
     // tmp variable we set to end of func frame
     let frame = format!("@LCL\nD=M\n@frame\nM=D\n");
     asm.push_str(&frame);
+    // stores the return addr in a tmp var b/c setting return_val might override it
+    let ret_addr = format!("@5\nD=A\n@frame\nA=M-D\nD=M\n@retAddr\nM=D\n");
+    asm.push_str(&ret_addr);
+    // Sets first arg that stack ptr is at to the return value
+    let return_val = format!("{}@ARG\nA=M\nM=D\n", pop_from_stack());
+    asm.push_str(&return_val);
+    // Repositions stack ptr to point to before the function frame at first arg
+    // This way we don't need to pop all the frame data/args we pushed
+    let set_sp = format!("@ARG\nD=M+1\n@SP\nM=D\n");
+    asm.push_str(&set_sp);
+
     // Get back saved values that we pushed to stack before calling func
     let that = format!("@1\nD=A\n@frame\nA=M-D\nD=M\n@THAT\nM=D\n");
     let this = format!("@2\nD=A\n@frame\nA=M-D\nD=M\n@THIS\nM=D\n");
     let arg = format!("@3\nD=A\n@frame\nA=M-D\nD=M\n@ARG\nM=D\n");
     let lcl = format!("@4\nD=A\n@frame\nA=M-D\nD=M\n@LCL\nM=D\n");
-    // stores the return addr in a tmp var
-    let ret_addr = format!("@5\nD=A\n@frame\nA=M-D\nD=M\n@retAddr\nM=D\n");
     asm.push_str(&that);
     asm.push_str(&this);
     asm.push_str(&arg);
     asm.push_str(&lcl);
-    asm.push_str(&ret_addr);
 
-    let return_jmp = format!("@retAddr\n0;JMP\n");
+    // jump back
+    let return_jmp = format!("@retAddr\nA=M\n0;JMP\n");
     asm.push_str(&return_jmp);
 
     return asm;
