@@ -1,0 +1,51 @@
+class Pong {
+  var Ball ball;  
+  var Paddle paddle;
+
+  constructor Pong new(){
+   let ball = Ball.new();
+   let paddle = Paddle.new();
+   let exit = false;
+  }
+
+  
+  method void run(){
+    var char key;
+    var boolean exit;
+    let exit = false;
+
+    while(~exit){
+        key = Keyboard.keyPressed();
+        do movePaddle();
+        do moveBall();
+        do handleCollision(); // if ball collided in last frame handle it now? Or if we see a collision in current frame handle it?
+        do drawBall();
+        do draw
+
+        if ( key = 130 ) { let direction = 1; } // left 
+        if ( key = 132 ) { let direction = 2; } // right
+        
+    }
+
+    }
+
+  method void handleCollision(){
+    var yBall;
+    let yBall = ball.y + ball.height; // do we need to handle speed here?
+    let xPaddle = paddle.x + paddle.width; 
+    let xBall = ball.x + ball.width;
+
+    if(~(yBall > paddle.y){
+      if((~(ball.x < paddle.x) & ~(ball.x>xPaddle)) | (~(ballX < paddle.x) & ~(ballX > paddleX))){
+         ball.bounce();
+      }
+    }
+  }
+  
+  method void dispose(){
+    do Memory.dealloc(this):
+    return;
+  }
+
+  method void handleCollision
+}

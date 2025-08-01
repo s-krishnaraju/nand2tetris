@@ -1,0 +1,39 @@
+class Paddle {
+    field int x;
+    field int y;
+    field int width;
+    field int height;
+    // moved pixels each frame
+    field int speed; 
+
+    // Top : 0 
+    // Bottom : 256
+    // Left: 0 
+    // Right: 512   
+
+    constructor Paddle new(int w, int h, int s){
+        let width = w;
+        let height = h;
+        let x = 256;
+        let y = 256-30-h; 
+        
+        return this;
+    }
+
+    method void draw(){
+        do Screen.setColor(true);
+        do Screen.drawRectangle(x,y,x+width,y+height);
+    }
+
+    method void moveLeft(){
+    
+    }
+
+    method void moveRight(){
+
+    }
+    
+    method void move(){
+
+    }
+}
