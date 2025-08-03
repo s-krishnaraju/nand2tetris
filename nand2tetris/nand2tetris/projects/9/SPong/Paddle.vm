@@ -1,0 +1,182 @@
+function Paddle.new 0
+push constant 5
+call Memory.alloc 1
+pop pointer 0
+push argument 0
+pop this 3
+push argument 1
+pop this 4
+push constant 256
+pop this 0
+push argument 2
+pop this 1
+push argument 2
+pop this 2
+push pointer 0
+call Paddle.draw 1
+pop temp 0
+push pointer 0
+call Paddle.drawFloor 1
+pop temp 0
+push pointer 0
+return
+function Paddle.getRightX 0
+push argument 0
+pop pointer 0
+push this 0
+push this 3
+add
+return
+function Paddle.getX 0
+push argument 0
+pop pointer 0
+push this 0
+return
+function Paddle.draw 0
+push argument 0
+pop pointer 0
+push constant 0
+not
+call Screen.setColor 1
+pop temp 0
+push this 0
+push this 1
+push this 0
+push this 3
+add
+push this 1
+push this 4
+add
+call Screen.drawRectangle 4
+pop temp 0
+push constant 0
+return
+function Paddle.drawFloor 1
+push argument 0
+pop pointer 0
+push this 2
+push this 4
+add
+push constant 5
+add
+pop local 0
+push constant 0
+not
+call Screen.setColor 1
+pop temp 0
+push constant 1
+push local 0
+push constant 511
+push local 0
+push constant 2
+add
+call Screen.drawRectangle 4
+pop temp 0
+push constant 0
+return
+function Paddle.moveLeft 0
+push argument 0
+pop pointer 0
+push this 0
+push constant 1
+gt
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+call Screen.setColor 1
+pop temp 0
+push this 0
+push this 3
+add
+push constant 1
+sub
+push this 1
+push this 0
+push this 3
+add
+push this 1
+push this 4
+add
+call Screen.drawRectangle 4
+pop temp 0
+push this 0
+push constant 2
+sub
+pop this 0
+push constant 0
+not
+call Screen.setColor 1
+pop temp 0
+push this 0
+push this 1
+push this 0
+push constant 1
+add
+push this 1
+push this 4
+add
+call Screen.drawRectangle 4
+pop temp 0
+label IF_FALSE0
+push constant 0
+return
+function Paddle.moveRight 0
+push argument 0
+pop pointer 0
+push this 0
+push this 3
+add
+push constant 512
+push constant 2
+sub
+lt
+if-goto IF_TRUE0
+goto IF_FALSE0
+label IF_TRUE0
+push constant 0
+call Screen.setColor 1
+pop temp 0
+push this 0
+push this 1
+push this 0
+push constant 1
+add
+push this 1
+push this 4
+add
+call Screen.drawRectangle 4
+pop temp 0
+push this 0
+push constant 2
+add
+pop this 0
+push constant 0
+not
+call Screen.setColor 1
+pop temp 0
+push this 0
+push this 3
+add
+push constant 1
+sub
+push this 1
+push this 0
+push this 3
+add
+push this 1
+push this 4
+add
+call Screen.drawRectangle 4
+pop temp 0
+label IF_FALSE0
+push constant 0
+return
+function Paddle.dispose 0
+push argument 0
+pop pointer 0
+push pointer 0
+call Memory.deAlloc 1
+pop temp 0
+push constant 0
+return

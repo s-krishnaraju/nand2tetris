@@ -1,0 +1,130 @@
+class Ball {
+    field int x;
+    field int y;
+    field int width;
+    field int height;
+    field int xDir;
+    field int yDir;
+    field int floor;
+    
+    // should move 1 pixel in both x,y dir
+    constructor Ball new(int w, int h, int f){
+      let x = 256;
+      let y = f-10;
+      let width = w;
+      let height = h;
+      let xDir = 1;  
+      let yDir = -1;
+      let floor = f;
+      do draw();
+      return this;
+    }
+
+    method void draw(){
+      do Screen.setColor(true);
+      do Screen.drawRectangle(x,y,x+width,y+height);
+      return;
+    }
+
+    method void moveLeftDown(){
+        do Screen.setColor(false);
+        do Screen.drawRectangle(x+width-1,y,x+width,y+height); // x rect
+        do Screen.drawRectangle(x,y,x+width,y+1); // y rect
+        let x = x-2;
+        let y = y+2;
+        do Screen.setColor(true);
+        do Screen.drawRectangle(x,y,x+1,y+height); // x rect
+        do Screen.drawRectangle(x,y+height-1,x+width,y+height); // y rect
+      return;
+    }
+
+    
+    method void moveLeftUp(){
+          // old y val
+          do Screen.setColor(false);
+          do Screen.drawRectangle(x+width-1,y,x+width,y+height);
+          do Screen.drawRectangle(x,y+height-1,x+width,y+height);
+          let x = x-2;
+          let y = y-2;
+          do Screen.setColor(true);
+          do Screen.drawRectangle(x,y,x+1,y+height);
+          do Screen.drawRectangle(x,y,x+width,y+1);
+      return;
+    }
+
+    method void moveRightDown(){
+          do Screen.setColor(false);
+          do Screen.drawRectangle(x,y,x+1,y+height);
+          do Screen.drawRectangle(x,y,x+width,y+1);
+          let x = x+2;
+          let y = y+2;
+          do Screen.setColor(true);
+          do Screen.drawRectangle(x+width-1,y,x+width,y+height);
+          do Screen.drawRectangle(x,y+height-1,x+width,y+height);
+      return;
+    }
+
+
+    method void moveRightUp(){
+          do Screen.setColor(false);
+          do Screen.drawRectangle(x,y,x+1,y+height);
+          do Screen.drawRectangle(x,y+height-1,x+width,y+height);
+          let x = x+2;
+          let y = y-2;
+          do Screen.setColor(true);
+          do Screen.drawRectangle(x+width-1,y,x+width,y+height);
+          do Screen.drawRectangle(x,y,x+width,y+1);
+      return;
+    }
+
+    method int getX(){
+        return x;
+    }
+
+    method int getRightX(){
+        return x + width;
+    }
+
+    method int getY(){
+        return y;
+    }
+
+    method int getBottomY(){
+        return y + height;
+    }
+
+    method void setYDir(int d){
+        let yDir = d;
+        return;
+    }
+
+    method void setXDir(int d){
+        let xDir = d;
+        return;
+    }
+
+    method void move(){
+      if(xDir = -1 & yDir = -1){
+        do moveLeftUp();
+      } 
+
+      if(xDir = 1 & yDir = -1){
+        do moveRightUp();
+      }
+
+      if(xDir = -1 & yDir = 1){
+        do moveLeftDown();
+      }
+
+      if(xDir = 1 & yDir = 1){
+        do moveRightDown();
+      }
+
+      return;
+    }
+
+    method void dispose(){
+        do Memory.deAlloc(this);
+        return;
+    }
+}

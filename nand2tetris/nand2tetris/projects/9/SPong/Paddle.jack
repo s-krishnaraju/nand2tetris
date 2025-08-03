@@ -1,39 +1,68 @@
 class Paddle {
     field int x;
     field int y;
+    field int floor;
     field int width;
     field int height;
-    // moved pixels each frame
-    field int speed; 
 
-    // Top : 0 
-    // Bottom : 256
-    // Left: 0 
-    // Right: 512   
-
-    constructor Paddle new(int w, int h, int s){
+    constructor Paddle new(int w, int h, int f){
         let width = w;
         let height = h;
         let x = 256;
-        let y = 256-30-h; 
-        
+        let y = f; 
+        let floor = f;
+        do draw();
+        do drawFloor();
         return this;
+    }
+
+    method int getRightX(){
+        return x+width;
+    }
+
+    method int getX(){
+        return x;
     }
 
     method void draw(){
         do Screen.setColor(true);
         do Screen.drawRectangle(x,y,x+width,y+height);
+        return;
+    }
+
+    // draw line little below paddle
+    method void drawFloor(){
+        var int yLine; 
+        let yLine = floor + height +5; 
+        do Screen.setColor(true);
+        do Screen.drawRectangle(1,yLine,511,yLine+2);
+        return;
     }
 
     method void moveLeft(){
-    
+        if(x > 1) {
+            do Screen.setColor(false);
+            do Screen.drawRectangle(x+width-1,y,x+width,y+height);
+            let x = x - 2;
+            do Screen.setColor(true);
+            do Screen.drawRectangle(x,y,x+1,y+height);
+        }
+        return;
     }
 
     method void moveRight(){
-
+        if((x + width) < (512-2)) {
+            do Screen.setColor(false);
+            do Screen.drawRectangle(x,y,x+1,y+height);
+            let x = x + 2;
+            do Screen.setColor(true);
+            do Screen.drawRectangle(x+width-1,y,x+width,y+height);
+        }
+        return;
     }
-    
-    method void move(){
 
-    }
+   method void dispose() {
+       do Memory.deAlloc(this);
+       return;
+   }
 }

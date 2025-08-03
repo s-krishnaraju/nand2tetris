@@ -4,8 +4,6 @@ class Pong {
   field boolean exit; 
   field int direction;
   field int floor; // where ball will collide w/ paddle
-  field boolean exit;
-  field int score;
 
   constructor Pong new(){
    let floor = 230;
@@ -13,37 +11,25 @@ class Pong {
    let paddle = Paddle.new(50, 5, floor);
    let exit = false;
    let direction = 2;
-   let exit = false;
-   let score = 0;
    return this;
   }
 
-
-  method void printScore(){
-     do Output.moveCursor(0,1);
-     do Output.printInt(score);
-     return;
-  }
   method void handleCollision(){
       var boolean rCollide;
       var boolean lCollide;
       var boolean uCollide;
       var boolean dCollide;
-     
+
+      let rCollide = ~(ball.getRightX() < (512-2));
+      let lCollide = ~(ball.getX() > 1);
 
       var boolean pc1;
       var boolean pc2;
       var boolean paddleCollide;
 
-      let rCollide = ~(ball.getRightX() < (512-2));
-      let lCollide = ~(ball.getX() > 1);
-      let uCollide = ~(ball.getY() > 1);
-      let dCollide = ~(ball.getBottomY() < (floor-2));
-
-      
-      let pc1 = ~(ball.getX() > paddle.getRightX()) & ~(ball.getX() < paddle.getX());
-      let pc2 = (ball.getX() < paddle.getX()) & ~(ball.getRightX() < paddle.getX());
-      let paddleCollide = pc1 | pc2;
+      let pc1 = (ball.getX() < paddle.getRightX()) & (ball.getX() > paddle.getX());
+      let pc2 = (ball.getX() < paddle.getX()) & (ball.getRightX() > paddle.getX());
+      let paddleCollide = paddleCollide1 & paddleCollide2;
 
       if(rCollide){
           do ball.setXDir(-1);
@@ -55,15 +41,8 @@ class Pong {
           do ball.setYDir(1);
       }
       if(dCollide){
-          if(paddleCollide){
-             do ball.setYDir(-1);
-             let score = score + 1;
-             do printScore();
-          } else {
-              let exit = true;
-          }
+          do ball.setYDir(-1);
       }
-
       return;
   }
 
@@ -85,8 +64,9 @@ class Pong {
 
   method void run(){
     var char key;
+    var boolean exit;
+    let exit = false;
 
-    do printScore();
     while(~exit){
         let key = Keyboard.keyPressed();
 

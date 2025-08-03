@@ -72,6 +72,7 @@ class Ball {
     /** Computes and sets the ball's destination. */
     method void setDestination(int destx, int desty) {
         var int dx, dy, temp;
+
   	    let lengthx = destx - x;
 	    let lengthy = desty - y;
         let dx = Math.abs(lengthx);
@@ -130,6 +131,8 @@ class Ball {
             else { let x = x - 4; }
 	    }
 
+
+        // handles/returns collisions which moveBall in PongGame then calls bounce 
 	    if (~(x > leftWall)) {
 	        let wall = 1;    
 	        let x = leftWall;
