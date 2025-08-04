@@ -1,6 +1,5 @@
 use std::env;
 use std::fs;
-use std::io::Error;
 
 enum Keyword {
     Class,
@@ -25,27 +24,28 @@ enum Keyword {
 }
 
 impl Keyword {
-    fn as_str(&self) -> &'static str {
-        match self {
-            Keyword::Class => "class",
-            Keyword::Method => "method",
-            Keyword::Function => "function",
-            Keyword::Constructor => "constructor",
-            Keyword::Int => "int",
-            Keyword::Boolean => "boolean",
-            Keyword::Char => "char",
-            Keyword::Void => "void",
-            Keyword::Var => "var",
-            Keyword::Let => "let",
-            Keyword::Do => "do",
-            Keyword::If => "if",
-            Keyword::Else => "else",
-            Keyword::While => "while",
-            Keyword::Return => "return",
-            Keyword::True => "true",
-            Keyword::False => "false",
-            Keyword::Null => "null",
-            Keyword::This => "this",
+    fn to_keyword(s: &str) -> Option<Keyword> {
+        match s {
+            "class" => Some(Keyword::Class),
+            "method" => Some(Keyword::Method),
+            "function" => Some(Keyword::Function),
+            "constructor" => Some(Keyword::Constructor),
+            "int" => Some(Keyword::Int),
+            "boolean" => Some(Keyword::Boolean),
+            "char" => Some(Keyword::Char),
+            "void" => Some(Keyword::Void),
+            "var" => Some(Keyword::Var),
+            "let" => Some(Keyword::Let),
+            "do" => Some(Keyword::Do),
+            "if" => Some(Keyword::If),
+            "else" => Some(Keyword::Else),
+            "while" => Some(Keyword::While),
+            "return" => Some(Keyword::Return),
+            "true" => Some(Keyword::True),
+            "false" => Some(Keyword::False),
+            "null" => Some(Keyword::Null),
+            "this" => Some(Keyword::This),
+            _ => None,
         }
     }
 }
@@ -103,7 +103,7 @@ enum Token {
     Keyword(Keyword),
     Symbol(Symbol),
     Identifier(String),
-    IntConst(u16),
+    IntConst(String),
     StringConst(String),
 }
 
@@ -111,25 +111,33 @@ struct Lexer {
     input: Vec<u8>,
     start_pos: usize,
     read_pos: usize,
-    ch: u8,
+    line_num: u8,
+    tokens: Vec<Token>,
 }
 
 impl Lexer {
     fn new(ch_vec: Vec<u8>) -> Lexer {
-        let first_ch = ch_vec[0];
         return Lexer {
             input: ch_vec,
             start_pos: 0,
             read_pos: 0,
-            ch: first_ch,
+            line_num: 1,
+            tokens: Vec::new(),
         };
+    }
+
+    fn peek_next(&self) -> Option<u8> {
+        if self.read_pos == self.input.len() {
+            return None;
+        }
+
+        return Some(self.input[self.read_pos]);
     }
 
     // this will throw out of bounds
     fn next(&mut self) -> u8 {
-        let ch = self.ch;
+        let ch = self.input[self.read_pos];
         self.read_pos += 1;
-        self.ch = self.input[self.read_pos];
 
         return ch;
     }
@@ -138,67 +146,166 @@ impl Lexer {
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
-
-    let mut tokens: Vec<Token> = Vec::new();
-
     let contents = fs::read_to_string(file_path).expect("Can't read file!");
 
-    tokenize(&contents, &mut tokens);
+    let ch_vec: Vec<u8> = contents.bytes().collect();
+    let mut lexer = Lexer::new(ch_vec);
+    tokenize(&mut lexer);
 }
 
-fn is_digit(ch: u8) -> bool {
-    match ch {
-        b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6' | b'7' | b'8' | b'9' => true,
-        _ => false,
+fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) {
+    match symbol {
+        Symbol::Slash => match lexer.next() {
+            b'/' => loop {
+                match lexer.peek_next() {
+                    Some(b'\n') => {
+                        lexer.next();
+                        lexer.line_num += 1;
+                        break;
+                    }
+                    Some(_) => {
+                        lexer.next();
+                    }
+                    None => {
+                        // we reached EOF
+                    }
+                }
+            },
+            b'*' => loop {
+                match lexer.next() {
+                    b'*' if lexer.peek_next() == Some(b'/') => {
+                        lexer.next();
+                        break;
+                    }
+                    _ if lexer.peek_next() == None => {
+                        panic!("Invalid block comment end");
+                    }
+                    b'\n' => {
+                        lexer.line_num += 1;
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
+            },
+            _ => {
+                lexer.tokens.push(Token::Symbol(symbol));
+            }
+        },
+        _ => {
+            lexer.tokens.push(Token::Symbol(symbol));
+        }
+    };
+}
+
+fn handle_digit(ch: u8, lexer: &mut Lexer) {
+    let mut num = String::new();
+    num.push(ch as char);
+
+    loop {
+        match lexer.peek_next() {
+            Some(b'0'..=b'9') => {
+                num.push(lexer.next() as char);
+                continue;
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+
+    lexer.tokens.push(Token::IntConst(num));
+}
+
+fn handle_string(lexer: &mut Lexer) {
+    let mut s = String::new();
+    loop {
+        match lexer.peek_next() {
+            Some(b'"') => {
+                lexer.next();
+                break;
+            }
+            Some(ch) => {
+                if ch == b'\n' {
+                    lexer.line_num += 1;
+                }
+                s.push(ch as char);
+                lexer.next();
+            }
+            None => {
+                panic!("Missing ending string double quote!");
+            }
+        }
+    }
+
+    lexer.tokens.push(Token::StringConst(s));
+}
+
+fn handle_keyword_or_identifier(ch: u8, lexer: &mut Lexer) {
+    let mut s = String::new();
+    s.push(ch as char);
+
+    loop {
+        match lexer.peek_next() {
+            Some(ch) if ch.is_ascii_alphanumeric() || ch == b'_' => {
+                s.push(ch as char);
+                lexer.next();
+            }
+            Some(_) => {
+                break;
+            }
+            None => {}
+        }
+    }
+
+    if let Some(keyword) = Keyword::to_keyword(&s) {
+        lexer.tokens.push(Token::Keyword(keyword));
+    } else {
+        lexer.tokens.push(Token::Identifier(s));
     }
 }
 
-fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) -> Option<Token> {
-    match symbol {
-        Symbol::Slash => {
-            lexer.next();
-            match lexer.ch {
-                b'/' => {
-                    while lexer.next() != b'\n' {
-                        continue;
-                    }
-                }
-                b'*' => {
-                    while lexer.next() != b'*' {
-                        continue;
-                    }
-
-                    if lexer.next() != b'/' {
-                        panic!("Invalid end comment");
-                    }
-                }
-                _ => {
-                    return Some(Token::Symbol(symbol));
-                }
-            }
-        }
-        _ => {
-            return Some(Token::Symbol(symbol));
-        }
-    };
-    return None;
-}
-
-fn tokenize(contents: &str, tokens: &mut Vec<Token>) {
-    let mut line_num = 0;
-    let ch_vec: Vec<u8> = contents.bytes().collect();
-
-    let mut lexer = Lexer::new(ch_vec);
-
+// TODO: test this
+fn tokenize(lexer: &mut Lexer) {
     loop {
         let ch = lexer.next();
 
         if let Some(symbol) = Symbol::to_symbol(ch) {
-            let result = handle_symbol(symbol, &mut lexer);
-            if let Some(token) = result {
-                tokens.push(token);
-            }
-        } else if is_digit(ch) {
+            handle_symbol(symbol, lexer);
+            continue;
         }
+
+        // read_pos will be at next token after this
+        match ch {
+            // Integer const
+            b'0'..=b'9' => {
+                handle_digit(ch, lexer);
+            }
+            // String const
+            b'"' => {
+                handle_string(lexer);
+            }
+
+            // Whitespace
+            b' ' | b'\t' | b'\r' => {
+                lexer.next();
+            }
+            b'\n' => {
+                lexer.line_num += 1;
+                lexer.next();
+            }
+
+            // Either keyword or identifier (can't start with digit)
+            _ if ch.is_ascii_alphabetic() || ch == b'_' => {
+                handle_keyword_or_identifier(ch, lexer);
+            }
+
+            _ => {
+                panic!("Unknown matched characted");
+            }
+        }
+
+        // we are not using start pos at all
+        lexer.start_pos = lexer.read_pos;
     }
 }
