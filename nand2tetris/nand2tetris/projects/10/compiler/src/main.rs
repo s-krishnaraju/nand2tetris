@@ -27,6 +27,7 @@ enum Keyword {
     Null,
     This,
     Static,
+    Field,
 }
 
 impl Keyword {
@@ -52,6 +53,7 @@ impl Keyword {
             "null" => Some(Keyword::Null),
             "this" => Some(Keyword::This),
             "static" => Some(Keyword::Static),
+            "field" => Some(Keyword::Field),
             _ => None,
         }
     }
@@ -114,6 +116,12 @@ enum Token {
     Identifier(String),
     IntConst(String),
     StringConst(String),
+}
+
+impl Token {
+    fn equals(&self, tok: &Token) -> bool {
+        mem::discriminant(self) == mem::discriminant(tok)
+    }
 }
 
 #[derive(Debug)]
@@ -204,6 +212,15 @@ enum ProgramElement {
     NonTerminal(NonTerminalElement),
 }
 
+impl ProgramElement {
+    fn new(tok: Option<Token>) -> ProgramElement {
+        match tok {
+            Some(t) => ProgramElement::Terminal(t),
+            None => panic!(),
+        }
+    }
+}
+
 // non-terminal elements have children
 // terminal just have a token
 #[derive(Debug)]
@@ -221,6 +238,9 @@ impl NonTerminalElement {
     }
     fn add(&mut self, elem: ProgramElement) {
         self.body.push(elem);
+    }
+    fn add_vec(&mut self, v: &mut Vec<ProgramElement>) {
+        self.body.append(v);
     }
 }
 
@@ -261,37 +281,157 @@ fn create_program_tree(contents: &str) -> NonTerminalElement {
     return parse_class(&mut parser);
 }
 
-// implement to_str so we can print token
-// use
+// check if correct type of token
 fn match_tok(parsed_tok: Option<Token>, tok: Token) -> ProgramElement {
     match parsed_tok {
         Some(t) => {
-            if mem::discriminant(&t) == mem::discriminant(&tok) {
+            if t.equals(&tok) {
                 return ProgramElement::Terminal(tok);
             } else {
-                // parsed_tok doesn't match tok
-                // use to_str/display to actually display tok
-                panic!("Token doesn't match!");
+                panic!("Parsed token doesn't match!");
             }
         }
         None => {
-            panic!("Reached end of tokens!");
+            panic!("EOF!");
         }
     };
+}
+
+fn handle_class_var_dec(parser: &mut TokenParser) -> ProgramElement {
+    let mut class_var_dec = NonTerminalElement::new(NonTerminalType::ClassVarDec);
+    let keyword = ProgramElement::new(parser.consume_tok());
+    let var_type = parse_declared_type(parser.consume_tok());
+    let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+
+    class_var_dec.add(keyword);
+    class_var_dec.add(var_type);
+    class_var_dec.add(var_name);
+
+    // check for ,var_name*
+    loop {
+        match parser.peek_tok() {
+            Some(Token::Symbol(Symbol::Comma)) => {
+                let comma = ProgramElement::new(parser.consume_tok());
+                let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+                class_var_dec.add(comma);
+                class_var_dec.add(var_name);
+            }
+            Some(Token::Symbol(Symbol::Semicolon)) => {
+                let semicolon = ProgramElement::new(parser.consume_tok());
+                class_var_dec.add(semicolon);
+                break;
+            }
+            Some(_) => {
+                panic!("Expected , or ;");
+            }
+            None => {
+                panic!("Reached end of file!");
+            }
+        }
+    }
+
+    return ProgramElement::NonTerminal(class_var_dec);
+}
+
+fn parse_declared_type(tok: Option<Token>) -> ProgramElement {
+    match tok {
+        Some(t) => {
+            if t.equals(&Token::Keyword(Keyword::Boolean))
+                || t.equals(&Token::Keyword(Keyword::Char))
+                || t.equals(&Token::Keyword(Keyword::Int))
+                || t.equals(&Token::Identifier("".to_string()))
+            {
+                return ProgramElement::Terminal(t);
+            } else {
+                panic!("type can only be char, int, boolean or a className")
+            }
+        }
+        None => panic!("Reached end of file!"),
+    }
+}
+
+fn parse_class_var_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
+    let mut decs: Vec<ProgramElement> = Vec::new();
+    loop {
+        match parser.peek_tok() {
+            Some(t)
+                if t.equals(&Token::Keyword(Keyword::Static))
+                    || t.equals(&Token::Keyword(Keyword::Field)) =>
+            {
+                let class_var_dec = handle_class_var_dec(parser);
+                decs.push(class_var_dec);
+            }
+            Some(_) => {
+                // not a class var dec
+                break;
+            }
+            None => {
+                panic!("EOF!")
+            }
+        }
+    }
+
+    return decs;
+}
+
+fn handle_subroutine_dec(parser: &mut TokenParser) -> ProgramElement {
+    let mut subroutine_dec = NonTerminalElement::new(NonTerminalType::SubroutineDec);
+    let keyword = ProgramElement::new(parser.consume_tok());
+    let subroutine_type = match parser.peek_tok() {
+        Some(Token::Keyword(Keyword::Void)) => ProgramElement::new(parser.consume_tok()),
+        Some(_) => parse_declared_type(parser.consume_tok()),
+        None => panic!("EOF!"),
+    };
+    let subroutine_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+    let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
+    // handle parameter list
+    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+    // handle subroutine body
+
+    return ProgramElement::NonTerminal(subroutine_dec);
+}
+
+fn parse_subroutine_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
+    let mut decs: Vec<ProgramElement> = Vec::new();
+    loop {
+        match parser.peek_tok() {
+            Some(t)
+                if t.equals(&Token::Keyword(Keyword::Constructor))
+                    | t.equals(&Token::Keyword(Keyword::Method))
+                    | t.equals(&Token::Keyword(Keyword::Function)) =>
+            {
+                let subroutine_dec = handle_subroutine_dec(parser);
+                decs.push(subroutine_dec);
+            }
+            Some(_) => {
+                // not a subroutine dec
+                break;
+            }
+            None => {
+                panic!("EOF!");
+            }
+        }
+    }
+    return decs;
 }
 
 // returns root of program/file
 fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
     let mut class = NonTerminalElement::new(NonTerminalType::Class);
+
     let class_keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Class));
     class.add(class_keyword);
     let class_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
     class.add(class_name);
-    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
     class.add(r_brace);
-    // handle classVarDec
-    // handle subroutineDec
-    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+
+    let mut class_var_decs = parse_class_var_decs(parser);
+    class.add_vec(&mut class_var_decs);
+    let mut subroutine_decs = parse_subroutine_decs(parser);
+    class.add_vec(&mut subroutine_decs);
+
+    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
     class.add(l_brace);
 
     return class;
