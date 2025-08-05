@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use std::collections::vec_deque;
 use std::env;
 use std::fs;
+use std::task::Context;
 
 #[derive(Debug)]
 enum Keyword {
@@ -160,39 +161,20 @@ impl Lexer {
     }
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let file_path = &args[1];
+struct TokenParser {
+    tokens: VecDeque<Token>,
+}
+impl TokenParser {
+    fn consume_tok(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
+    }
 
-    let mut lexer: Lexer;
-    if file_path.contains(".jack") {
-        let file_name = file_path.split("/").last().unwrap().replace(".jack", "");
-        let contents = fs::read_to_string(file_path).expect("Can't read file!");
-        let ch_vec: Vec<u8> = contents.bytes().collect();
-        lexer = Lexer::new(ch_vec);
-        tokenize(&mut lexer);
-        println!("------------ Tokens for {}.jack ------------", file_name);
-        dbg!(&lexer.tokens);
-    } else {
-        let paths = fs::read_dir(file_path).expect("Couldn't read directory");
-        for path in paths {
-            if let Ok(path) = path {
-                if let Ok(file_name) = path.file_name().into_string() {
-                    if file_name.contains(".jack") {
-                        let contents = fs::read_to_string(path.path()).expect("Can't read file!");
-                        let ch_vec: Vec<u8> = contents.bytes().collect();
-                        let file_name = file_name.replace(".jack", "");
-                        lexer = Lexer::new(ch_vec);
-                        tokenize(&mut lexer);
-                        println!("------------ Tokens for {}.jack ------------", file_name);
-                        dbg!(&lexer.tokens);
-                    }
-                }
-            }
-        }
+    fn peek_tok(&mut self) -> Option<&Token> {
+        self.tokens.front()
     }
 }
 
+#[derive(Debug)]
 enum Statement {
     If,
     Let,
@@ -201,6 +183,7 @@ enum Statement {
     Return,
 }
 
+#[derive(Debug)]
 enum NonTerminalType {
     Class,
     ClassVarDec,
@@ -215,6 +198,7 @@ enum NonTerminalType {
     Term,
 }
 
+#[derive(Debug)]
 enum ProgramElement {
     Terminal(Token),
     NonTerminal(NonTerminalElement),
@@ -222,19 +206,106 @@ enum ProgramElement {
 
 // non-terminal elements have children
 // terminal just have a token
+#[derive(Debug)]
 struct NonTerminalElement {
     nt_type: NonTerminalType,
     body: Vec<ProgramElement>,
 }
 
-fn parse_expression(lexer: &mut Lexer) {}
+impl NonTerminalElement {
+    fn new(nt_type: NonTerminalType) -> NonTerminalElement {
+        return NonTerminalElement {
+            nt_type: nt_type,
+            body: Vec::new(),
+        };
+    }
+    fn add(&mut self, elem: ProgramElement) {
+        self.body.push(elem);
+    }
+}
 
-fn parse_statements(lexer: &mut Lexer) {
-    match lexer.consume_tok() {
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let file_path = &args[1];
+
+    if file_path.contains(".jack") {
+        let file_name = file_path.split("/").last().unwrap().replace(".jack", "");
+        let contents = fs::read_to_string(file_path).expect("Can't read file!");
+        let tree = create_program_tree(&contents);
+        dbg!(tree);
+    } else {
+        let paths = fs::read_dir(file_path).expect("Couldn't read directory");
+        for path in paths {
+            if let Ok(path) = path {
+                if let Ok(file_name) = path.file_name().into_string() {
+                    if file_name.contains(".jack") {
+                        let file_name = file_name.replace(".jack", "");
+                        let contents = fs::read_to_string(path.path()).expect("Can't read file!");
+                        let tree = create_program_tree(&contents);
+                        dbg!(tree);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn create_program_tree(contents: &str) -> NonTerminalElement {
+    let ch_vec: Vec<u8> = contents.bytes().collect();
+    let mut lexer = Lexer::new(ch_vec);
+    tokenize(&mut lexer);
+    let mut parser = TokenParser {
+        tokens: lexer.tokens,
+    };
+
+    return parse_class(&mut parser);
+}
+
+// implement to_str so we can print token
+fn match_tok(tok1: Option<Token>, tok2: Token) -> ProgramElement {
+    match tok1 {
+        Some(tok2) => ProgramElement::Terminal(tok2),
+        Some(_) => panic!("Can't match token"),
+        None => panic!("Ran out of tokens!"),
+    }
+}
+
+fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
+    let class = NonTerminalElement::new(NonTerminalType::Class);
+
+    let class_keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Class));
+    class.add(class_keyword);
+    // how will this match w/ arbitrary string
+    let class_name = match_tok(parser.consume_tok(), Token::Identifier());
+
+    Token::Keyword(Keyword::Class).match_tok(parser.consume_tok());
+
+    // if let Some(Token::Keyword(Keyword::Class)) =
+    //
+    // if (parser.consume_tok() == Some(Token::Keyword(Keyword::Class))) {}
+
+    return class;
+}
+
+/*** these all return program element/s ***/
+
+fn parse_expression(parser: &mut TokenParser) -> ProgramElement {
+    let mut expression = NonTerminalElement::new(NonTerminalType::Expression);
+    return ProgramElement::NonTerminal(expression);
+}
+
+// recursive handle multiple statements
+fn parse_statements(parser: &mut TokenParser) -> ProgramElement {
+    let mut statements = NonTerminalElement {
+        nt_type: NonTerminalType::Statements,
+        body: Vec::new(),
+    };
+
+    match parser.consume_tok() {
         Some(Token::Keyword(Keyword::Let)) => {
             // let varName ?[expression]? = expression ;
 
-            match lexer.consume_tok() {
+            match parser.consume_tok() {
                 Some(Token::Identifier(var_name)) => {}
                 Some(_) => {
                     panic!("Expected identifier after keyword let")
@@ -264,11 +335,9 @@ fn parse_statements(lexer: &mut Lexer) {
             panic!("End of tokens");
         }
     }
+
+    return ProgramElement::NonTerminal(statements);
 }
-
-fn parse_class(lexer: &mut Lexer) {}
-
-fn parse_tokens(lexer: &mut Lexer) {}
 
 fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) {
     match symbol {
