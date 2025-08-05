@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 
+#[derive(Debug)]
 enum Keyword {
     Class,
     Method,
@@ -21,6 +22,7 @@ enum Keyword {
     False,
     Null,
     This,
+    Static,
 }
 
 impl Keyword {
@@ -45,11 +47,13 @@ impl Keyword {
             "false" => Some(Keyword::False),
             "null" => Some(Keyword::Null),
             "this" => Some(Keyword::This),
+            "static" => Some(Keyword::Static),
             _ => None,
         }
     }
 }
 
+#[derive(Debug)]
 enum Symbol {
     LBrace,
     RBrace,
@@ -63,7 +67,7 @@ enum Symbol {
     Add,
     Minus,
     Mult,
-    Slash,
+    Division,
     And,
     Or,
     Less,
@@ -87,7 +91,7 @@ impl Symbol {
             b'+' => Some(Symbol::Add),
             b'-' => Some(Symbol::Minus),
             b'*' => Some(Symbol::Mult),
-            b'/' => Some(Symbol::Slash),
+            b'/' => Some(Symbol::Division),
             b'&' => Some(Symbol::And),
             b'|' => Some(Symbol::Or),
             b'<' => Some(Symbol::Less),
@@ -99,6 +103,7 @@ impl Symbol {
     }
 }
 
+#[derive(Debug)]
 enum Token {
     Keyword(Keyword),
     Symbol(Symbol),
@@ -107,6 +112,7 @@ enum Token {
     StringConst(String),
 }
 
+#[derive(Debug)]
 struct Lexer {
     input: Vec<u8>,
     start_pos: usize,
@@ -143,53 +149,98 @@ impl Lexer {
     }
 }
 
+fn parse_directory() {}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
-    let contents = fs::read_to_string(file_path).expect("Can't read file!");
 
-    let ch_vec: Vec<u8> = contents.bytes().collect();
-    let mut lexer = Lexer::new(ch_vec);
-    tokenize(&mut lexer);
+    let mut lexer: Lexer;
+    if file_path.contains(".jack") {
+        let file_name = file_path.split("/").last().unwrap().replace(".jack", "");
+        let contents = fs::read_to_string(file_path).expect("Can't read file!");
+        let ch_vec: Vec<u8> = contents.bytes().collect();
+        lexer = Lexer::new(ch_vec);
+        tokenize(&mut lexer);
+        println!("------------ Tokens for {}.jack ------------", file_name);
+        dbg!(&lexer.tokens);
+    } else {
+        let paths = fs::read_dir(file_path).expect("Couldn't read directory");
+        for path in paths {
+            if let Ok(path) = path {
+                if let Ok(file_name) = path.file_name().into_string() {
+                    if file_name.contains(".jack") {
+                        let contents = fs::read_to_string(path.path()).expect("Can't read file!");
+                        let ch_vec: Vec<u8> = contents.bytes().collect();
+                        let file_name = file_name.replace(".jack", "");
+                        lexer = Lexer::new(ch_vec);
+                        tokenize(&mut lexer);
+                        println!("------------ Tokens for {}.jack ------------", file_name);
+                        dbg!(&lexer.tokens);
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) {
     match symbol {
-        Symbol::Slash => match lexer.next() {
-            b'/' => loop {
-                match lexer.peek_next() {
-                    Some(b'\n') => {
-                        lexer.next();
-                        lexer.line_num += 1;
-                        break;
-                    }
-                    Some(_) => {
-                        lexer.next();
-                    }
-                    None => {
-                        // we reached EOF
-                    }
-                }
-            },
-            b'*' => loop {
-                match lexer.next() {
-                    b'*' if lexer.peek_next() == Some(b'/') => {
-                        lexer.next();
-                        break;
-                    }
-                    _ if lexer.peek_next() == None => {
-                        panic!("Invalid block comment end");
-                    }
-                    b'\n' => {
-                        lexer.line_num += 1;
-                    }
-                    _ => {
-                        continue;
+        // check if it's divison or comment
+        Symbol::Division => match lexer.peek_next() {
+            // new line comment
+            Some(b'/') => {
+                // consume '/' and look for newline end
+                lexer.next();
+                loop {
+                    match lexer.peek_next() {
+                        Some(b'\n') => {
+                            lexer.next();
+                            lexer.line_num += 1;
+                            break;
+                        }
+                        Some(_) => {
+                            lexer.next();
+                        }
+                        None => {
+                            // we reached EOF
+                        }
                     }
                 }
-            },
-            _ => {
-                lexer.tokens.push(Token::Symbol(symbol));
+            }
+            // block comment
+            Some(b'*') => {
+                // consume '*' and look for */ end
+                lexer.next();
+                // This will fail w/ /*EOF
+                loop {
+                    match lexer.peek_next() {
+                        Some(b'*') => {
+                            lexer.next();
+                            if lexer.peek_next() == Some(b'/') {
+                                // found */
+                                lexer.next();
+                                break;
+                            }
+                        }
+                        Some(b'\n') => {
+                            lexer.line_num += 1;
+                            lexer.next();
+                        }
+                        Some(_) => {
+                            lexer.next();
+                        }
+                        None => {
+                            panic!("Block comment not terminated! at {}", lexer.line_num);
+                        }
+                    }
+                }
+            }
+            Some(_) => {
+                lexer.tokens.push(Token::Symbol(Symbol::Division));
+            }
+            None => {
+                panic!("Reached EOF after slash at {}", lexer.line_num);
             }
         },
         _ => {
@@ -233,7 +284,7 @@ fn handle_string(lexer: &mut Lexer) {
                 lexer.next();
             }
             None => {
-                panic!("Missing ending string double quote!");
+                panic!("Missing ending string double quote at {}", lexer.line_num);
             }
         }
     }
@@ -254,7 +305,9 @@ fn handle_keyword_or_identifier(ch: u8, lexer: &mut Lexer) {
             Some(_) => {
                 break;
             }
-            None => {}
+            None => {
+                panic!("Reached EOF after identifier/keyword! {}", lexer.line_num);
+            }
         }
     }
 
@@ -268,6 +321,11 @@ fn handle_keyword_or_identifier(ch: u8, lexer: &mut Lexer) {
 // TODO: test this
 fn tokenize(lexer: &mut Lexer) {
     loop {
+        // Check for EOF
+        if let None = lexer.peek_next() {
+            return;
+        }
+
         let ch = lexer.next();
 
         if let Some(symbol) = Symbol::to_symbol(ch) {
@@ -275,7 +333,6 @@ fn tokenize(lexer: &mut Lexer) {
             continue;
         }
 
-        // read_pos will be at next token after this
         match ch {
             // Integer const
             b'0'..=b'9' => {
@@ -285,23 +342,20 @@ fn tokenize(lexer: &mut Lexer) {
             b'"' => {
                 handle_string(lexer);
             }
-
             // Whitespace
             b' ' | b'\t' | b'\r' => {
-                lexer.next();
+                continue;
             }
             b'\n' => {
                 lexer.line_num += 1;
-                lexer.next();
+                continue;
             }
-
             // Either keyword or identifier (can't start with digit)
             _ if ch.is_ascii_alphabetic() || ch == b'_' => {
                 handle_keyword_or_identifier(ch, lexer);
             }
-
             _ => {
-                panic!("Unknown matched characted");
+                panic!("Unknown matched character at {}", lexer.line_num);
             }
         }
 
