@@ -1,9 +1,9 @@
 #![allow(warnings)]
+use core::panic;
 use std::collections::VecDeque;
-use std::collections::vec_deque;
 use std::env;
 use std::fs;
-use std::task::Context;
+use std::mem;
 
 #[derive(Debug)]
 enum Keyword {
@@ -262,32 +262,40 @@ fn create_program_tree(contents: &str) -> NonTerminalElement {
 }
 
 // implement to_str so we can print token
-fn match_tok(tok1: Option<Token>, tok2: Token) -> ProgramElement {
-    match tok1 {
-        Some(tok2) => ProgramElement::Terminal(tok2),
-        Some(_) => panic!("Can't match token"),
-        None => panic!("Ran out of tokens!"),
-    }
+// use
+fn match_tok(parsed_tok: Option<Token>, tok: Token) -> ProgramElement {
+    match parsed_tok {
+        Some(t) => {
+            if mem::discriminant(&t) == mem::discriminant(&tok) {
+                return ProgramElement::Terminal(tok);
+            } else {
+                // parsed_tok doesn't match tok
+                // use to_str/display to actually display tok
+                panic!("Token doesn't match!");
+            }
+        }
+        None => {
+            panic!("Reached end of tokens!");
+        }
+    };
 }
 
+// returns root of program/file
 fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
-    let class = NonTerminalElement::new(NonTerminalType::Class);
-
+    let mut class = NonTerminalElement::new(NonTerminalType::Class);
     let class_keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Class));
     class.add(class_keyword);
-    // how will this match w/ arbitrary string
-    let class_name = match_tok(parser.consume_tok(), Token::Identifier());
-
-    Token::Keyword(Keyword::Class).match_tok(parser.consume_tok());
-
-    // if let Some(Token::Keyword(Keyword::Class)) =
-    //
-    // if (parser.consume_tok() == Some(Token::Keyword(Keyword::Class))) {}
+    let class_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+    class.add(class_name);
+    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+    class.add(r_brace);
+    // handle classVarDec
+    // handle subroutineDec
+    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+    class.add(l_brace);
 
     return class;
 }
-
-/*** these all return program element/s ***/
 
 fn parse_expression(parser: &mut TokenParser) -> ProgramElement {
     let mut expression = NonTerminalElement::new(NonTerminalType::Expression);
