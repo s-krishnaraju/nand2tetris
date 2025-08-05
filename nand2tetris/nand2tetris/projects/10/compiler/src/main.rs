@@ -1,3 +1,6 @@
+#![allow(warnings)]
+use std::collections::VecDeque;
+use std::collections::vec_deque;
 use std::env;
 use std::fs;
 
@@ -118,7 +121,7 @@ struct Lexer {
     start_pos: usize,
     read_pos: usize,
     line_num: u8,
-    tokens: Vec<Token>,
+    tokens: VecDeque<Token>,
 }
 
 impl Lexer {
@@ -128,7 +131,7 @@ impl Lexer {
             start_pos: 0,
             read_pos: 0,
             line_num: 1,
-            tokens: Vec::new(),
+            tokens: VecDeque::new(),
         };
     }
 
@@ -147,9 +150,15 @@ impl Lexer {
 
         return ch;
     }
-}
 
-fn parse_directory() {}
+    fn consume_tok(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
+    }
+
+    fn peek_tok(&mut self) -> Option<&Token> {
+        self.tokens.front()
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -183,6 +192,83 @@ fn main() {
         }
     }
 }
+
+enum Statement {
+    If,
+    Let,
+    While,
+    Do,
+    Return,
+}
+
+enum NonTerminalType {
+    Class,
+    ClassVarDec,
+    SubroutineDec,
+    ParamList,
+    SubroutineBody,
+    VarDec,
+    Statements,
+    Statement(Statement),
+    ExpressionList,
+    Expression,
+    Term,
+}
+
+enum ProgramElement {
+    Terminal(Token),
+    NonTerminal(NonTerminalElement),
+}
+
+// non-terminal elements have children
+// terminal just have a token
+struct NonTerminalElement {
+    nt_type: NonTerminalType,
+    body: Vec<ProgramElement>,
+}
+
+fn parse_expression(lexer: &mut Lexer) {}
+
+fn parse_statements(lexer: &mut Lexer) {
+    match lexer.consume_tok() {
+        Some(Token::Keyword(Keyword::Let)) => {
+            // let varName ?[expression]? = expression ;
+
+            match lexer.consume_tok() {
+                Some(Token::Identifier(var_name)) => {}
+                Some(_) => {
+                    panic!("Expected identifier after keyword let")
+                }
+                None => panic!("End of tokens"),
+            }
+        }
+        Some(Token::Keyword(Keyword::If)) => {
+            // if (expression) {statements} ?else{statements}?
+        }
+        Some(Token::Keyword(Keyword::While)) => {
+            // while (expression) {statements}
+        }
+        Some(Token::Keyword(Keyword::Return)) => {
+            // return expression? ;
+        }
+        Some(Token::Keyword(Keyword::Do)) => {
+            // do subroutineCall ;
+        }
+        Some(Token::Symbol(Symbol::RBrace)) => {
+            // end statements
+        }
+        Some(_) => {
+            panic!("Unexpected token for statement");
+        }
+        None => {
+            panic!("End of tokens");
+        }
+    }
+}
+
+fn parse_class(lexer: &mut Lexer) {}
+
+fn parse_tokens(lexer: &mut Lexer) {}
 
 fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) {
     match symbol {
@@ -237,14 +323,14 @@ fn handle_symbol(symbol: Symbol, lexer: &mut Lexer) {
                 }
             }
             Some(_) => {
-                lexer.tokens.push(Token::Symbol(Symbol::Division));
+                lexer.tokens.push_back(Token::Symbol(Symbol::Division));
             }
             None => {
                 panic!("Reached EOF after slash at {}", lexer.line_num);
             }
         },
         _ => {
-            lexer.tokens.push(Token::Symbol(symbol));
+            lexer.tokens.push_back(Token::Symbol(symbol));
         }
     };
 }
@@ -265,7 +351,7 @@ fn handle_digit(ch: u8, lexer: &mut Lexer) {
         }
     }
 
-    lexer.tokens.push(Token::IntConst(num));
+    lexer.tokens.push_back(Token::IntConst(num));
 }
 
 fn handle_string(lexer: &mut Lexer) {
@@ -289,7 +375,7 @@ fn handle_string(lexer: &mut Lexer) {
         }
     }
 
-    lexer.tokens.push(Token::StringConst(s));
+    lexer.tokens.push_back(Token::StringConst(s));
 }
 
 fn handle_keyword_or_identifier(ch: u8, lexer: &mut Lexer) {
@@ -312,9 +398,9 @@ fn handle_keyword_or_identifier(ch: u8, lexer: &mut Lexer) {
     }
 
     if let Some(keyword) = Keyword::to_keyword(&s) {
-        lexer.tokens.push(Token::Keyword(keyword));
+        lexer.tokens.push_back(Token::Keyword(keyword));
     } else {
-        lexer.tokens.push(Token::Identifier(s));
+        lexer.tokens.push_back(Token::Identifier(s));
     }
 }
 
