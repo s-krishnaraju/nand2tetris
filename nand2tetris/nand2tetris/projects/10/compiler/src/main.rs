@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::fs;
 use std::mem;
+use std::ops::RangeInclusive;
 
 #[derive(Debug)]
 enum Keyword {
@@ -76,8 +77,8 @@ enum Symbol {
     Division,
     And,
     Or,
-    Less,
-    Greater,
+    LessThan,
+    GreaterThan,
     Equal,
     Negation,
 }
@@ -100,8 +101,8 @@ impl Symbol {
             b'/' => Some(Symbol::Division),
             b'&' => Some(Symbol::And),
             b'|' => Some(Symbol::Or),
-            b'<' => Some(Symbol::Less),
-            b'>' => Some(Symbol::Greater),
+            b'<' => Some(Symbol::LessThan),
+            b'>' => Some(Symbol::GreaterThan),
             b'=' => Some(Symbol::Equal),
             b'~' => Some(Symbol::Negation),
             _ => None,
@@ -183,15 +184,6 @@ impl TokenParser {
 }
 
 #[derive(Debug)]
-enum Statement {
-    If,
-    Let,
-    While,
-    Do,
-    Return,
-}
-
-#[derive(Debug)]
 enum NonTerminalType {
     Class,
     ClassVarDec,
@@ -200,7 +192,11 @@ enum NonTerminalType {
     SubroutineBody,
     VarDec,
     Statements,
-    Statement(Statement),
+    IfStatement,
+    LetStatement,
+    WhileStatement,
+    DoStatement,
+    ReturnStatement,
     ExpressionList,
     Expression,
     Term,
@@ -278,7 +274,7 @@ fn create_program_tree(contents: &str) -> NonTerminalElement {
         tokens: lexer.tokens,
     };
 
-    return parse_class(&mut parser);
+    return handle_class(&mut parser);
 }
 
 // check if correct type of token
@@ -300,7 +296,7 @@ fn match_tok(parsed_tok: Option<Token>, tok: Token) -> ProgramElement {
 fn handle_class_var_dec(parser: &mut TokenParser) -> ProgramElement {
     let mut class_var_dec = NonTerminalElement::new(NonTerminalType::ClassVarDec);
     let keyword = ProgramElement::new(parser.consume_tok());
-    let var_type = parse_declared_type(parser.consume_tok());
+    let var_type = handle_declared_type(parser.consume_tok());
     let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
 
     class_var_dec.add(keyword);
@@ -333,7 +329,7 @@ fn handle_class_var_dec(parser: &mut TokenParser) -> ProgramElement {
     return ProgramElement::NonTerminal(class_var_dec);
 }
 
-fn parse_declared_type(tok: Option<Token>) -> ProgramElement {
+fn handle_declared_type(tok: Option<Token>) -> ProgramElement {
     match tok {
         Some(t) => {
             if t.equals(&Token::Keyword(Keyword::Boolean))
@@ -350,7 +346,7 @@ fn parse_declared_type(tok: Option<Token>) -> ProgramElement {
     }
 }
 
-fn parse_class_var_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
+fn handle_class_var_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
     let mut decs: Vec<ProgramElement> = Vec::new();
     loop {
         match parser.peek_tok() {
@@ -377,21 +373,108 @@ fn parse_class_var_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
 fn handle_subroutine_dec(parser: &mut TokenParser) -> ProgramElement {
     let mut subroutine_dec = NonTerminalElement::new(NonTerminalType::SubroutineDec);
     let keyword = ProgramElement::new(parser.consume_tok());
+    subroutine_dec.add(keyword);
     let subroutine_type = match parser.peek_tok() {
         Some(Token::Keyword(Keyword::Void)) => ProgramElement::new(parser.consume_tok()),
-        Some(_) => parse_declared_type(parser.consume_tok()),
+        Some(_) => handle_declared_type(parser.consume_tok()),
         None => panic!("EOF!"),
     };
+    subroutine_dec.add(subroutine_type);
     let subroutine_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+    subroutine_dec.add(subroutine_name);
+
+    // (type varName *,type varName*);
     let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
-    // handle parameter list
-    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
-    // handle subroutine body
+    subroutine_dec.add(l_paren);
+    let mut param_list = NonTerminalElement::new(NonTerminalType::ParamList);
+    loop {
+        match parser.consume_tok() {
+            Some(Token::Symbol(Symbol::RParen)) => {
+                // end param list
+                subroutine_dec.add(ProgramElement::NonTerminal(param_list));
+                subroutine_dec.add(ProgramElement::Terminal(Token::Symbol(Symbol::RParen)));
+                break;
+            }
+            Some(Token::Symbol(Symbol::Comma)) => {
+                // look for type varName
+                param_list.add(ProgramElement::Terminal(Token::Symbol(Symbol::Comma)));
+                continue;
+            }
+            Some(tok) => {
+                // handle type varName
+                let var_type = handle_declared_type(Some(tok));
+                param_list.add(var_type);
+                let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+                param_list.add(var_name);
+            }
+            None => panic!("EOF!"),
+        }
+    }
+
+    // { varDecs*
+    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+    subroutine_dec.add(l_brace);
+    loop {
+        match parser.peek_tok() {
+            Some(Token::Keyword(Keyword::Var)) => {
+                let var_dec = handle_var_dec(parser);
+                subroutine_dec.add(var_dec);
+            }
+            Some(_) => {
+                // end of var decs
+                break;
+            }
+            None => {
+                panic!("EOF!")
+            }
+        }
+    }
+    // statements }
+    let statements = handle_statements(parser);
+    subroutine_dec.add(statements);
+    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+    subroutine_dec.add(r_brace);
 
     return ProgramElement::NonTerminal(subroutine_dec);
 }
 
-fn parse_subroutine_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
+fn handle_var_dec(parser: &mut TokenParser) -> ProgramElement {
+    let mut var_dec = NonTerminalElement::new(NonTerminalType::VarDec);
+
+    // match var type varName
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Var));
+    var_dec.add(keyword);
+    let var_type = handle_declared_type(parser.consume_tok());
+    var_dec.add(var_type);
+    let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+    var_dec.add(var_name);
+
+    // match ,varName*;
+    loop {
+        match parser.consume_tok() {
+            Some(Token::Symbol(Symbol::Semicolon)) => {
+                // end of var dec
+                var_dec.add(ProgramElement::Terminal(Token::Symbol(Symbol::Semicolon)));
+                break;
+            }
+            Some(Token::Symbol(Symbol::Comma)) => {
+                var_dec.add(ProgramElement::Terminal(Token::Symbol(Symbol::Comma)));
+                let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+                var_dec.add(var_name);
+            }
+            Some(_) => {
+                panic!("Expected ; or another variable name!");
+            }
+            None => {
+                panic!("EOF!");
+            }
+        }
+    }
+
+    return ProgramElement::NonTerminal(var_dec);
+}
+
+fn handle_subroutine_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
     let mut decs: Vec<ProgramElement> = Vec::new();
     loop {
         match parser.peek_tok() {
@@ -416,7 +499,7 @@ fn parse_subroutine_decs(parser: &mut TokenParser) -> Vec<ProgramElement> {
 }
 
 // returns root of program/file
-fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
+fn handle_class(parser: &mut TokenParser) -> NonTerminalElement {
     let mut class = NonTerminalElement::new(NonTerminalType::Class);
 
     let class_keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Class));
@@ -426,9 +509,9 @@ fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
     let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
     class.add(r_brace);
 
-    let mut class_var_decs = parse_class_var_decs(parser);
+    let mut class_var_decs = handle_class_var_decs(parser);
     class.add_vec(&mut class_var_decs);
-    let mut subroutine_decs = parse_subroutine_decs(parser);
+    let mut subroutine_decs = handle_subroutine_decs(parser);
     class.add_vec(&mut subroutine_decs);
 
     let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
@@ -437,50 +520,349 @@ fn parse_class(parser: &mut TokenParser) -> NonTerminalElement {
     return class;
 }
 
-fn parse_expression(parser: &mut TokenParser) -> ProgramElement {
+fn is_operation(tok: &Token) -> bool {
+    match tok {
+        Token::Symbol(Symbol::Add)
+        | Token::Symbol(Symbol::Minus)
+        | Token::Symbol(Symbol::Mult)
+        | Token::Symbol(Symbol::Division)
+        | Token::Symbol(Symbol::And)
+        | Token::Symbol(Symbol::Or)
+        | Token::Symbol(Symbol::LessThan)
+        | Token::Symbol(Symbol::GreaterThan)
+        | Token::Symbol(Symbol::Equal) => true,
+        _ => false,
+    }
+}
+fn handle_term(parser: &mut TokenParser) -> ProgramElement {
+    let mut term = NonTerminalElement::new(NonTerminalType::Term);
+    match parser.consume_tok() {
+        Some(t)
+            if t.equals(&Token::StringConst("".to_string()))
+                || t.equals(&Token::IntConst("".to_string()))
+                || t.equals(&Token::Keyword(Keyword::True))
+                || t.equals(&Token::Keyword(Keyword::False))
+                || t.equals(&Token::Keyword(Keyword::Null))
+                || t.equals(&Token::Keyword(Keyword::This)) =>
+        {
+            // integerConstant | stringConstant | keywordConstant
+            let constant = ProgramElement::Terminal(t);
+            term.add(constant);
+        }
+        Some(t)
+            if t.equals(&Token::Symbol(Symbol::Minus))
+                || t.equals(&Token::Symbol(Symbol::Negation)) =>
+        {
+            // unaryOp term
+            let unary = ProgramElement::Terminal(t);
+            term.add(unary);
+            let next_term = handle_term(parser);
+            term.add(next_term);
+        }
+        Some(t) if t.equals(&Token::Identifier("".to_string())) => {
+            // varName | varName[expr] | subroutineCall
+            match parser.peek_tok() {
+                Some(Token::Symbol(Symbol::LBrack)) => {
+                    // varName[expr]
+                    let var_name = ProgramElement::Terminal(t);
+                    term.add(var_name);
+                    let l_brack = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrack));
+                    term.add(l_brack);
+                    let expr = handle_expression(parser);
+                    term.add(expr);
+                    let r_brack = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrack));
+                    term.add(r_brack);
+                }
+                Some(Token::Symbol(Symbol::LParen)) => {
+                    // subroutineName (expressionList)
+                    let subroutine_name = ProgramElement::Terminal(t);
+                    term.add(subroutine_name);
+                    let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
+                    term.add(l_paren);
+                    let expr_list = handle_expression_list(parser);
+                    term.add(expr_list);
+                    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+                    term.add(r_paren);
+                }
+                Some(Token::Symbol(Symbol::Dot)) => {
+                    // className|varName . subroutineName (expresionList)
+                    let name = ProgramElement::Terminal(t);
+                    term.add(name);
+                    let dot = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Dot));
+                    term.add(dot);
+                    let subroutine_name =
+                        match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+                    term.add(subroutine_name);
+                    let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
+                    term.add(l_paren);
+                    let expr_list = handle_expression_list(parser);
+                    term.add(expr_list);
+                    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+                    term.add(r_paren);
+                }
+                Some(_) => {
+                    // varName
+                    let var_name = ProgramElement::Terminal(t);
+                    term.add(var_name);
+                }
+                None => {
+                    panic!("EOF!");
+                }
+            }
+        }
+        Some(t) if t.equals(&Token::Symbol(Symbol::LParen)) => {
+            // (expression)
+            let l_paren = ProgramElement::Terminal(t);
+            term.add(l_paren);
+            let expr = handle_expression(parser);
+            term.add(expr);
+            let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+            term.add(r_paren);
+        }
+        Some(_) => {
+            panic!("Received unexpected term in expression");
+        }
+        None => {
+            panic!("EOF!");
+        }
+    };
+
+    return ProgramElement::NonTerminal(term);
+}
+
+fn handle_expression_list(parser: &mut TokenParser) -> ProgramElement {
+    let mut expr_list = NonTerminalElement::new(NonTerminalType::ExpressionList);
+    // expression ,expression* ?
+    loop {
+        match parser.peek_tok() {
+            Some(Token::Symbol(Symbol::RParen)) => {
+                // end expr list
+                break;
+            }
+            Some(Token::Symbol(Symbol::Comma)) => {
+                // ,expression
+                let comma = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Comma));
+                expr_list.add(comma);
+                let expr = handle_expression(parser);
+                expr_list.add(expr);
+            }
+            Some(_) => {
+                // expression
+                let expr = handle_expression(parser);
+                expr_list.add(expr);
+            }
+            None => {
+                panic!("EOF!");
+            }
+        }
+    }
+    return ProgramElement::NonTerminal(expr_list);
+}
+fn handle_expression(parser: &mut TokenParser) -> ProgramElement {
     let mut expression = NonTerminalElement::new(NonTerminalType::Expression);
+    // term opterm*
+    let term = handle_term(parser);
+    expression.add(term);
+
+    loop {
+        match parser.peek_tok() {
+            Some(t) if is_operation(t) => {
+                // op term
+                let op = ProgramElement::new(parser.consume_tok());
+                expression.add(op);
+                let term = handle_term(parser);
+                expression.add(term);
+            }
+            Some(_) => {
+                // not op
+                break;
+            }
+            None => {
+                panic!("EOF!");
+            }
+        }
+    }
+
     return ProgramElement::NonTerminal(expression);
 }
 
-// recursive handle multiple statements
-fn parse_statements(parser: &mut TokenParser) -> ProgramElement {
-    let mut statements = NonTerminalElement {
-        nt_type: NonTerminalType::Statements,
-        body: Vec::new(),
-    };
+fn handle_let_statement(parser: &mut TokenParser) -> ProgramElement {
+    let mut let_statement = NonTerminalElement::new(NonTerminalType::LetStatement);
 
-    match parser.consume_tok() {
-        Some(Token::Keyword(Keyword::Let)) => {
-            // let varName ?[expression]? = expression ;
+    // let varName
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Let));
+    let_statement.add(keyword);
+    let var_name = match_tok(parser.consume_tok(), Token::Identifier("".to_string()));
+    let_statement.add(var_name);
 
-            match parser.consume_tok() {
-                Some(Token::Identifier(var_name)) => {}
-                Some(_) => {
-                    panic!("Expected identifier after keyword let")
-                }
-                None => panic!("End of tokens"),
-            }
-        }
-        Some(Token::Keyword(Keyword::If)) => {
-            // if (expression) {statements} ?else{statements}?
-        }
-        Some(Token::Keyword(Keyword::While)) => {
-            // while (expression) {statements}
-        }
-        Some(Token::Keyword(Keyword::Return)) => {
-            // return expression? ;
-        }
-        Some(Token::Keyword(Keyword::Do)) => {
-            // do subroutineCall ;
-        }
-        Some(Token::Symbol(Symbol::RBrace)) => {
-            // end statements
+    // [expr]?
+    match parser.peek_tok() {
+        Some(Token::Symbol(Symbol::LBrack)) => {
+            let l_brack = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrack));
+            let_statement.add(l_brack);
+            let expr = handle_expression(parser);
+            let_statement.add(expr);
+            let r_brack = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrack));
+            let_statement.add(r_brack);
         }
         Some(_) => {
-            panic!("Unexpected token for statement");
+            // no [expr]
         }
         None => {
-            panic!("End of tokens");
+            panic!("Reached EOF!");
+        }
+    }
+
+    // = expr;
+    let equal = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Equal));
+    let_statement.add(equal);
+    let expr = handle_expression(parser);
+    let_statement.add(expr);
+    let semicolon = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Semicolon));
+    let_statement.add(semicolon);
+
+    return ProgramElement::NonTerminal(let_statement);
+}
+fn handle_if_statement(parser: &mut TokenParser) -> ProgramElement {
+    let mut if_statement = NonTerminalElement::new(NonTerminalType::IfStatement);
+
+    // if(expr)
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::If));
+    if_statement.add(keyword);
+    let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
+    if_statement.add(l_paren);
+    let expr = handle_expression(parser);
+    if_statement.add(expr);
+    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+    if_statement.add(r_paren);
+
+    // {statements}
+    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+    if_statement.add(l_brace);
+    let statements = handle_statements(parser);
+    if_statement.add(statements);
+    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+    if_statement.add(r_brace);
+
+    // else {statements} ?
+    match parser.peek_tok() {
+        Some(Token::Keyword(Keyword::Else)) => {
+            let else_statement = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Else));
+            if_statement.add(else_statement);
+            let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+            if_statement.add(l_brace);
+            let statements = handle_statements(parser);
+            if_statement.add(statements);
+            let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+            if_statement.add(r_brace);
+        }
+        Some(_) => {
+            // no else statement
+        }
+        None => {
+            panic!("EOF!")
+        }
+    }
+
+    return ProgramElement::NonTerminal(if_statement);
+}
+fn handle_while_statement(parser: &mut TokenParser) -> ProgramElement {
+    let mut while_statement = NonTerminalElement::new(NonTerminalType::WhileStatement);
+
+    // while(expr)
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::While));
+    while_statement.add(keyword);
+    let l_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LParen));
+    while_statement.add(l_paren);
+    let expr = handle_expression(parser);
+    while_statement.add(expr);
+    let r_paren = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RParen));
+    while_statement.add(r_paren);
+
+    // {statements}
+    let l_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::LBrace));
+    while_statement.add(l_brace);
+    let statements = handle_statements(parser);
+    while_statement.add(statements);
+    let r_brace = match_tok(parser.consume_tok(), Token::Symbol(Symbol::RBrace));
+    while_statement.add(r_brace);
+
+    return ProgramElement::NonTerminal(while_statement);
+}
+fn handle_do_statement(parser: &mut TokenParser) -> ProgramElement {
+    // do subroutineCall
+    let mut do_statement = NonTerminalElement::new(NonTerminalType::DoStatement);
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Do));
+    do_statement.add(keyword);
+    // let subroutine_call = handle_subroutine_call();
+    // do_statement.add(subroutine_call);
+
+    return ProgramElement::NonTerminal(do_statement);
+}
+fn handle_return_statement(parser: &mut TokenParser) -> ProgramElement {
+    let mut return_statement = NonTerminalElement::new(NonTerminalType::ReturnStatement);
+    let keyword = match_tok(parser.consume_tok(), Token::Keyword(Keyword::Return));
+    return_statement.add(keyword);
+    match parser.consume_tok() {
+        Some(Token::Symbol(Symbol::Semicolon)) => {
+            // ;
+            let semicolon = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Semicolon));
+            return_statement.add(semicolon);
+        }
+        Some(_) => {
+            // expr;
+            let expr = handle_expression(parser);
+            return_statement.add(expr);
+            let semicolon = match_tok(parser.consume_tok(), Token::Symbol(Symbol::Semicolon));
+            return_statement.add(semicolon);
+        }
+        None => {}
+    }
+
+    return ProgramElement::NonTerminal(return_statement);
+}
+
+fn handle_statements(parser: &mut TokenParser) -> ProgramElement {
+    let mut statements = NonTerminalElement::new(NonTerminalType::Statements);
+
+    loop {
+        match parser.peek_tok() {
+            Some(Token::Keyword(Keyword::Let)) => {
+                // let varName ?[expression]? = expression ;
+                let let_statement = handle_let_statement(parser);
+                statements.add(let_statement);
+            }
+            Some(Token::Keyword(Keyword::If)) => {
+                // if (expression) {statements} else{statements}?
+                let if_statement = handle_if_statement(parser);
+                statements.add(if_statement);
+            }
+            Some(Token::Keyword(Keyword::While)) => {
+                // while (expression) {statements}
+                let while_statement = handle_while_statement(parser);
+                statements.add(while_statement);
+            }
+            Some(Token::Keyword(Keyword::Return)) => {
+                // return expression? ;
+                let return_statement = handle_return_statement(parser);
+                statements.add(return_statement);
+            }
+            Some(Token::Keyword(Keyword::Do)) => {
+                // do subroutineCall ;
+                let do_statement = handle_do_statement(parser);
+                statements.add(do_statement);
+            }
+            Some(Token::Symbol(Symbol::RBrace)) => {
+                // end of statements
+                // don't consume rbrace
+                break;
+            }
+            Some(_) => {
+                panic!("Unexpected token for statement");
+            }
+            None => {
+                panic!("End of tokens");
+            }
         }
     }
 
