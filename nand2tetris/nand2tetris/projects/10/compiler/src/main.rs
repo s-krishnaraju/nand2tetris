@@ -5,6 +5,8 @@ use std::env;
 use std::fs;
 use std::mem;
 
+// TODO: make separate files for lexer and parser
+
 #[derive(Debug)]
 enum Keyword {
     Class,
