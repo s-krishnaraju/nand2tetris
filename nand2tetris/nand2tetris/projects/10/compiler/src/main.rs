@@ -11,6 +11,8 @@ mod lexer;
 use crate::lexer::Lexer;
 use crate::lexer::tokenize;
 
+mod code_gen;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let file_path = &args[1];
@@ -30,9 +32,9 @@ fn main() {
                     if file_name.contains(".jack") {
                         let contents = fs::read_to_string(path.path()).expect("Can't read file!");
                         let tree = create_program_tree(&contents);
-                        let xml = tree.to_xml();
-                        let xml_path = path.path().to_str().unwrap().replace(".jack", "test.xml");
-                        let _ = fs::write(xml_path, xml);
+                        // let xml = tree.to_xml();
+                        // let xml_path = path.path().to_str().unwrap().replace(".jack", "test.xml");
+                        // let _ = fs::write(xml_path, xml);
                     }
                 }
             }

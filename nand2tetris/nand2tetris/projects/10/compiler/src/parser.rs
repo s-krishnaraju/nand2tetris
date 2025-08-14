@@ -37,7 +37,7 @@ pub enum NonTerminalType {
 }
 
 #[derive(Debug)]
-enum ProgramElement {
+pub enum ProgramElement {
     Terminal(Token),
     NonTerminal(NonTerminalElement),
 }
@@ -71,22 +71,22 @@ impl ProgramElement {
 // terminal just have a token
 #[derive(Debug)]
 pub struct NonTerminalElement {
-    nt_type: NonTerminalType,
-    body: Vec<ProgramElement>,
+    pub nt_type: NonTerminalType,
+    pub children: Vec<ProgramElement>,
 }
 
 impl NonTerminalElement {
     pub fn new(nt_type: NonTerminalType) -> NonTerminalElement {
         return NonTerminalElement {
             nt_type: nt_type,
-            body: Vec::new(),
+            children: Vec::new(),
         };
     }
     fn add(&mut self, elem: ProgramElement) {
-        self.body.push(elem);
+        self.children.push(elem);
     }
     fn add_vec(&mut self, v: &mut Vec<ProgramElement>) {
-        self.body.append(v);
+        self.children.append(v);
     }
 
     fn _to_str(&self) -> &str {
@@ -112,7 +112,7 @@ impl NonTerminalElement {
     pub fn to_xml(&self) -> String {
         let mut xml = String::new();
         xml.push_str(&format!("<{}>\n", self._to_str()));
-        for elem in &self.body {
+        for elem in &self.children {
             let elem_xml = elem.to_xml();
             let mut indent = String::new();
             for line in elem_xml.lines() {
