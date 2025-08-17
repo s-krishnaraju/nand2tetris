@@ -665,7 +665,7 @@ fn compile_do_statement(
         Some(ProgramElement::Terminal(Token::Symbol(Symbol::LParen))) => {
             // subroutineName(expressionList)
             i += 1;
-            bytecode.push_str("push argument 0\n");
+            bytecode.push_str("push pointer 0\n");
             let (expr_list, num_args) = match body.get(i) {
                 Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
                     NonTerminalType::ExpressionList => {
@@ -765,15 +765,17 @@ fn compile_while_statement(
     };
 
     class_table.while_labels += 1;
-    bytecode.push_str(&format!("label WHILE_START{}\n", class_table.while_labels));
+    let curr_while_label = class_table.while_labels;
+    bytecode.push_str(&format!("label WHILE_START{}\n", curr_while_label));
     bytecode.push_str(&expr);
-    bytecode.push_str("neg\n");
-    bytecode.push_str(&format!("if-goto WHILE_END{}\n", class_table.while_labels));
+    bytecode.push_str("not\n");
+    bytecode.push_str(&format!("if-goto WHILE_END{}\n", curr_while_label));
     bytecode.push_str(&statements);
-    bytecode.push_str(&format!("goto WHILE_START{}\n", class_table.while_labels));
-    bytecode.push_str(&format!("label WHILE_END{}\n", class_table.while_labels));
+    bytecode.push_str(&format!("goto WHILE_START{}\n", curr_while_label));
+    bytecode.push_str(&format!("label WHILE_END{}\n", curr_while_label));
     return bytecode;
 }
+
 fn compile_if_statement(
     class_table: &mut SymbolTable,
     subroutine_table: &SymbolTable,
@@ -820,16 +822,17 @@ fn compile_if_statement(
     // handle branching
     // need to generate unique labels
     class_table.if_labels += 1;
+    let curr_if_label = class_table.if_labels;
     bytecode.push_str(&expr);
-    bytecode.push_str("neg\n");
-    bytecode.push_str(&format!("if-goto IF_END{}\n", class_table.if_labels));
+    bytecode.push_str("not\n");
+    bytecode.push_str(&format!("if-goto IF_END{}\n", curr_if_label));
     bytecode.push_str(&statements);
-    bytecode.push_str(&format!("goto ELSE_END{}\n", class_table.if_labels));
-    bytecode.push_str(&format!("label IF_END{}\n", class_table.if_labels));
+    bytecode.push_str(&format!("goto ELSE_END{}\n", curr_if_label));
+    bytecode.push_str(&format!("label IF_END{}\n", curr_if_label));
     if let Some(s) = else_statements {
         bytecode.push_str(&s);
     }
-    bytecode.push_str(&format!("label ELSE_END{}\n", class_table.if_labels));
+    bytecode.push_str(&format!("label ELSE_END{}\n", curr_if_label));
 
     return bytecode;
 }
@@ -935,7 +938,7 @@ fn compile_param_list(table: &mut SymbolTable, params: &Vec<ProgramElement>) {
     }
 }
 
-pub fn analyze(tree: NonTerminalElement) {
+pub fn analyze(tree: NonTerminalElement) -> String {
     let mut class_table = SymbolTable::new();
     let mut bytecode = String::new();
     // compile class var decs
@@ -957,5 +960,5 @@ pub fn analyze(tree: NonTerminalElement) {
             _ => {}
         }
     }
-    print!("{}", bytecode);
+    return bytecode;
 }

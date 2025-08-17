@@ -22,7 +22,9 @@ fn main() {
         // let file_name = file_path.split("/").last().unwrap().replace(".jack", "");
         let contents = fs::read_to_string(file_path).expect("Can't read file!");
         let tree = create_program_tree(&contents);
-        analyze(tree);
+        let vm_code = analyze(tree);
+        let new_file_path = file_path.replace(".jack", ".vm");
+        fs::write(new_file_path, vm_code).expect(&format!("Couldn't write to {}", file_path));
     } else {
         let paths = fs::read_dir(file_path).expect("Couldn't read directory");
         for path in paths {
@@ -31,7 +33,13 @@ fn main() {
                     if file_name.contains(".jack") {
                         let contents = fs::read_to_string(path.path()).expect("Can't read file!");
                         let tree = create_program_tree(&contents);
-                        analyze(tree);
+                        let vm_code = analyze(tree);
+
+                        let file_path = path.path();
+                        let file_path = file_path.to_str().unwrap();
+                        let new_file_path = file_path.replace(".jack", ".vm");
+                        fs::write(new_file_path, vm_code)
+                            .expect(&format!("Couldn't write to {}", file_path));
                     }
                 }
             }
