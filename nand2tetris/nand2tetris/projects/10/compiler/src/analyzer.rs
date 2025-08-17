@@ -3,7 +3,7 @@ use crate::{
     parser::{NonTerminalElement, NonTerminalType, ProgramElement},
 };
 use core::panic;
-use std::{collections::HashMap, ops::Index};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 enum Scope {
@@ -36,6 +36,8 @@ struct SymbolTable {
     static_offset: u8,
     var_offset: u8,
     arg_offset: u8,
+    if_labels: usize,
+    while_labels: usize,
     name: String,
 }
 
@@ -47,6 +49,8 @@ impl SymbolTable {
             static_offset: 0,
             var_offset: 0,
             arg_offset: 0,
+            if_labels: 0,
+            while_labels: 0,
             name: String::new(),
         }
     }
@@ -130,7 +134,6 @@ fn compile_class_var_dec(class_table: &mut SymbolTable, t: &NonTerminalElement) 
 
 fn compile_subroutine_var_dec(table: &mut SymbolTable, body: &Vec<ProgramElement>) {
     let mut i = 0;
-    let keyword = body.get(i).unwrap();
     let keyword = match body.get(i) {
         Some(ProgramElement::Terminal(Token::Keyword(Keyword::Var))) => Scope::Var,
         _ => {
@@ -166,7 +169,7 @@ fn compile_subroutine_var_dec(table: &mut SymbolTable, body: &Vec<ProgramElement
         i += 1;
     }
 }
-fn compile_subroutine_dec(class_table: &SymbolTable, t: &Vec<ProgramElement>) {
+fn compile_subroutine_dec(class_table: &mut SymbolTable, t: &Vec<ProgramElement>) -> String {
     let mut subroutine_table = SymbolTable::new();
     let mut i = 0;
     let mut bytecode = String::new();
@@ -223,6 +226,7 @@ fn compile_subroutine_dec(class_table: &SymbolTable, t: &Vec<ProgramElement>) {
     ));
     bytecode.push_str(&init_subroutine_bytecode);
     bytecode.push_str(&subroutine_bytecode);
+    return bytecode;
 }
 
 fn compile_expression_list(
@@ -370,7 +374,7 @@ fn compile_term(
                                 bytecode.push_str(&expr_list);
                                 // num_args + 1 b/c we push the this arg
                                 bytecode.push_str(&format!(
-                                    "call {}.{} {}",
+                                    "call {}.{} {}\n",
                                     class_table.name,
                                     name,
                                     num_args + 1
@@ -412,7 +416,7 @@ fn compile_term(
                                     bytecode.push_str(&expr_list);
                                     // call subroutine
                                     bytecode.push_str(&format!(
-                                        "call {}.{} {}",
+                                        "call {}.{} {}\n",
                                         resolve_class_name(name, class_table, subroutine_table),
                                         subroutine_name,
                                         num_args + 1 // +1 b/c of this arg
@@ -423,7 +427,7 @@ fn compile_term(
                                     bytecode.push_str(&expr_list);
                                     // call subroutine
                                     bytecode.push_str(&format!(
-                                        "call {}.{} {}",
+                                        "call {}.{} {}\n",
                                         name, subroutine_name, num_args
                                     ));
                                 }
@@ -553,7 +557,7 @@ fn compile_op(op: &Token) -> String {
 
 fn compile_let_statement(
     class_table: &SymbolTable,
-    subroutine_table: &mut SymbolTable,
+    subroutine_table: &SymbolTable,
     body: &Vec<ProgramElement>,
 ) -> String {
     let mut bytecode = String::new();
@@ -622,83 +626,262 @@ fn compile_let_statement(
 }
 fn compile_return_statement(
     class_table: &SymbolTable,
-    subroutine_table: &mut SymbolTable,
+    subroutine_table: &SymbolTable,
     body: &Vec<ProgramElement>,
 ) -> String {
     let mut bytecode = String::new();
-    return bytecode;
-}
-fn compile_do_statement(
-    class_table: &SymbolTable,
-    subroutine_table: &mut SymbolTable,
-    body: &Vec<ProgramElement>,
-) -> String {
-    let mut bytecode = String::new();
-    return bytecode;
-}
-fn compile_while_statement(
-    class_table: &SymbolTable,
-    subroutine_table: &mut SymbolTable,
-    body: &Vec<ProgramElement>,
-) -> String {
-    let mut bytecode = String::new();
-    return bytecode;
-}
-fn compile_if_statement(
-    class_table: &SymbolTable,
-    subroutine_table: &mut SymbolTable,
-    body: &Vec<ProgramElement>,
-) -> String {
-    let mut bytecode = String::new();
+    match body.get(1) {
+        Some(ProgramElement::Terminal(Token::Symbol(Symbol::Semicolon))) => {
+            bytecode.push_str("push constant 0\n");
+            bytecode.push_str("return\n");
+        }
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Expression => {
+                let expr = compile_expression(class_table, subroutine_table, &nt.children);
+                bytecode.push_str(&expr);
+                bytecode.push_str("return\n");
+            }
+            _ => panic!(),
+        },
+        _ => panic!(),
+    };
     return bytecode;
 }
 
-fn compile_subroutine_body(
+fn compile_do_statement(
     class_table: &SymbolTable,
+    subroutine_table: &SymbolTable,
+    body: &Vec<ProgramElement>,
+) -> String {
+    let mut bytecode = String::new();
+    let mut i = 1;
+    let name = match body.get(i) {
+        Some(ProgramElement::Terminal(Token::Identifier(s))) => s,
+        _ => panic!(),
+    };
+    i += 1;
+
+    match body.get(i) {
+        Some(ProgramElement::Terminal(Token::Symbol(Symbol::LParen))) => {
+            // subroutineName(expressionList)
+            i += 1;
+            bytecode.push_str("push argument 0\n");
+            let (expr_list, num_args) = match body.get(i) {
+                Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+                    NonTerminalType::ExpressionList => {
+                        compile_expression_list(class_table, subroutine_table, &nt.children)
+                    }
+                    _ => panic!(),
+                },
+                _ => panic!(),
+            };
+            bytecode.push_str(&expr_list);
+            // num_args + 1 b/c we push the this arg
+            bytecode.push_str(&format!(
+                "call {}.{} {}\n",
+                class_table.name,
+                name,
+                num_args + 1
+            ));
+            // pop off the returned value
+            bytecode.push_str("pop temp 0\n");
+        }
+        Some(ProgramElement::Terminal(Token::Symbol(Symbol::Dot))) => {
+            // className/varName .subroutineName(expressionList)
+            i += 1;
+            let subroutine_name = match body.get(i) {
+                Some(ProgramElement::Terminal(Token::Identifier(s))) => s,
+                _ => panic!(),
+            };
+            i += 2;
+            let (expr_list, num_args) = match body.get(i) {
+                Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+                    NonTerminalType::ExpressionList => {
+                        compile_expression_list(class_table, subroutine_table, &nt.children)
+                    }
+                    _ => panic!(),
+                },
+                _ => panic!(),
+            };
+
+            if subroutine_table.table.contains_key(name) || class_table.table.contains_key(name) {
+                // method so we push the obj addr as first arg
+                bytecode.push_str(&format!(
+                    "push {}\n",
+                    resolve_symbol_variable(name, class_table, subroutine_table)
+                ));
+                // push rest of args
+                bytecode.push_str(&expr_list);
+                // call subroutine
+                bytecode.push_str(&format!(
+                    "call {}.{} {}\n",
+                    resolve_class_name(name, class_table, subroutine_table),
+                    subroutine_name,
+                    num_args + 1 // +1 b/c of this arg
+                ));
+                // pop off the returned value
+                bytecode.push_str("pop temp 0\n");
+            } else {
+                // constructor/function
+                // push args
+                bytecode.push_str(&expr_list);
+                // call subroutine
+                bytecode.push_str(&format!("call {}.{} {}\n", name, subroutine_name, num_args));
+                // pop off the returned value
+                bytecode.push_str("pop temp 0\n");
+            }
+        }
+        _ => panic!(),
+    }
+
+    return bytecode;
+}
+
+fn compile_while_statement(
+    class_table: &mut SymbolTable,
+    subroutine_table: &SymbolTable,
+    body: &Vec<ProgramElement>,
+) -> String {
+    let mut bytecode = String::new();
+    let mut i = 2;
+    let expr = match body.get(i) {
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Expression => {
+                compile_expression(class_table, subroutine_table, &nt.children)
+            }
+            _ => panic!(),
+        },
+        _ => panic!(),
+    };
+    i += 3;
+    let statements = match body.get(i) {
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Statements => {
+                compile_statements(class_table, subroutine_table, &nt.children)
+            }
+            _ => panic!(),
+        },
+        _ => panic!(),
+    };
+
+    class_table.while_labels += 1;
+    bytecode.push_str(&format!("label WHILE_START{}\n", class_table.while_labels));
+    bytecode.push_str(&expr);
+    bytecode.push_str("neg\n");
+    bytecode.push_str(&format!("if-goto WHILE_END{}\n", class_table.while_labels));
+    bytecode.push_str(&statements);
+    bytecode.push_str(&format!("goto WHILE_START{}\n", class_table.while_labels));
+    bytecode.push_str(&format!("label WHILE_END{}\n", class_table.while_labels));
+    return bytecode;
+}
+fn compile_if_statement(
+    class_table: &mut SymbolTable,
+    subroutine_table: &SymbolTable,
+    body: &Vec<ProgramElement>,
+) -> String {
+    let mut bytecode = String::new();
+    let mut i = 2;
+    let expr = match body.get(i) {
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Expression => {
+                compile_expression(class_table, subroutine_table, &nt.children)
+            }
+            _ => panic!(),
+        },
+        _ => panic!(),
+    };
+    i += 3;
+    let statements = match body.get(i) {
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Statements => {
+                compile_statements(class_table, subroutine_table, &nt.children)
+            }
+            _ => panic!(),
+        },
+        _ => panic!(),
+    };
+    i += 4;
+
+    // handle else statements if they exist
+    let else_statements = match body.get(i) {
+        Some(ProgramElement::NonTerminal(nt)) => match nt.nt_type {
+            NonTerminalType::Statements => Some(compile_statements(
+                class_table,
+                subroutine_table,
+                &nt.children,
+            )),
+            _ => panic!(),
+        },
+        None => None,
+        _ => panic!(),
+    };
+
+    // gen VM code
+    // handle branching
+    // need to generate unique labels
+    class_table.if_labels += 1;
+    bytecode.push_str(&expr);
+    bytecode.push_str("neg\n");
+    bytecode.push_str(&format!("if-goto IF_END{}\n", class_table.if_labels));
+    bytecode.push_str(&statements);
+    bytecode.push_str(&format!("goto ELSE_END{}\n", class_table.if_labels));
+    bytecode.push_str(&format!("label IF_END{}\n", class_table.if_labels));
+    if let Some(s) = else_statements {
+        bytecode.push_str(&s);
+    }
+    bytecode.push_str(&format!("label ELSE_END{}\n", class_table.if_labels));
+
+    return bytecode;
+}
+
+fn compile_statements(
+    class_table: &mut SymbolTable,
+    subroutine_table: &SymbolTable,
+    statements: &Vec<ProgramElement>,
+) -> String {
+    let mut bytecode = String::new();
+    for s in statements {
+        let statement_bytecode = match s {
+            ProgramElement::NonTerminal(nt) => match nt.nt_type {
+                NonTerminalType::IfStatement => {
+                    compile_if_statement(class_table, subroutine_table, &nt.children)
+                }
+                NonTerminalType::ReturnStatement => {
+                    compile_return_statement(class_table, subroutine_table, &nt.children)
+                }
+                NonTerminalType::DoStatement => {
+                    compile_do_statement(class_table, subroutine_table, &nt.children)
+                }
+                NonTerminalType::LetStatement => {
+                    compile_let_statement(class_table, subroutine_table, &nt.children)
+                }
+                NonTerminalType::WhileStatement => {
+                    compile_while_statement(class_table, subroutine_table, &nt.children)
+                }
+                _ => panic!(),
+            },
+            _ => panic!(),
+        };
+        bytecode.push_str(&statement_bytecode);
+    }
+    return bytecode;
+}
+fn compile_subroutine_body(
+    class_table: &mut SymbolTable,
     subroutine_table: &mut SymbolTable,
     body: &Vec<ProgramElement>,
 ) -> String {
     let mut bytecode = String::new();
     for b in body {
         match b {
-            ProgramElement::NonTerminal(t) => match t.nt_type {
+            ProgramElement::NonTerminal(nt) => match nt.nt_type {
                 NonTerminalType::VarDec => {
-                    compile_subroutine_var_dec(subroutine_table, &t.children);
+                    compile_subroutine_var_dec(subroutine_table, &nt.children);
                 }
                 NonTerminalType::Statements => {
-                    for statement in &t.children {
-                        let statement_bytecode = match statement {
-                            ProgramElement::NonTerminal(nt) => match nt.nt_type {
-                                NonTerminalType::IfStatement => compile_if_statement(
-                                    class_table,
-                                    subroutine_table,
-                                    &nt.children,
-                                ),
-                                NonTerminalType::ReturnStatement => compile_return_statement(
-                                    class_table,
-                                    subroutine_table,
-                                    &nt.children,
-                                ),
-                                NonTerminalType::DoStatement => compile_do_statement(
-                                    class_table,
-                                    subroutine_table,
-                                    &nt.children,
-                                ),
-                                NonTerminalType::LetStatement => compile_let_statement(
-                                    class_table,
-                                    subroutine_table,
-                                    &nt.children,
-                                ),
-                                NonTerminalType::WhileStatement => compile_while_statement(
-                                    class_table,
-                                    subroutine_table,
-                                    &nt.children,
-                                ),
-                                _ => panic!(),
-                            },
-                            _ => panic!(),
-                        };
-                    }
+                    let statements_bytecode =
+                        compile_statements(class_table, subroutine_table, &nt.children);
+                    bytecode.push_str(&statements_bytecode);
                 }
                 _ => panic!(),
             },
@@ -754,6 +937,7 @@ fn compile_param_list(table: &mut SymbolTable, params: &Vec<ProgramElement>) {
 
 pub fn analyze(tree: NonTerminalElement) {
     let mut class_table = SymbolTable::new();
+    let mut bytecode = String::new();
     // compile class var decs
     for child in &tree.children {
         match child {
@@ -765,11 +949,13 @@ pub fn analyze(tree: NonTerminalElement) {
                     compile_class_var_dec(&mut class_table, t);
                 }
                 NonTerminalType::SubroutineDec => {
-                    compile_subroutine_dec(&class_table, &t.children);
+                    let subroutine_bytecode = compile_subroutine_dec(&mut class_table, &t.children);
+                    bytecode.push_str(&subroutine_bytecode);
                 }
                 _ => {}
             },
             _ => {}
         }
     }
+    print!("{}", bytecode);
 }
