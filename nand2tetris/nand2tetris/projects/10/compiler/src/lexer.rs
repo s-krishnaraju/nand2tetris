@@ -144,7 +144,7 @@ pub enum Symbol {
     LessThan,
     GreaterThan,
     Equal,
-    Negation,
+    Not,
 }
 
 impl Symbol {
@@ -168,7 +168,7 @@ impl Symbol {
             b'<' => Some(Symbol::LessThan),
             b'>' => Some(Symbol::GreaterThan),
             b'=' => Some(Symbol::Equal),
-            b'~' => Some(Symbol::Negation),
+            b'~' => Some(Symbol::Not),
             _ => None,
         }
     }
@@ -194,7 +194,7 @@ impl Symbol {
             Symbol::LessThan => "&lt;",
             Symbol::GreaterThan => "&gt;",
             Symbol::Equal => "=",
-            Symbol::Negation => "~",
+            Symbol::Not => "~",
         };
         xml.push_str(sym);
         xml.push_str(" </symbol>");

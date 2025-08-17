@@ -11,8 +11,8 @@ mod lexer;
 use crate::lexer::Lexer;
 use crate::lexer::tokenize;
 
-mod code_gen;
-use crate::code_gen::code_gen;
+mod analyzer;
+use crate::analyzer::analyze;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -22,10 +22,7 @@ fn main() {
         // let file_name = file_path.split("/").last().unwrap().replace(".jack", "");
         let contents = fs::read_to_string(file_path).expect("Can't read file!");
         let tree = create_program_tree(&contents);
-        code_gen(tree);
-        // let xml = tree.to_xml();
-        // let xml_path = file_path.replace(".jack", "test.xml");
-        // let _ = fs::write(xml_path, xml);
+        analyze(tree);
     } else {
         let paths = fs::read_dir(file_path).expect("Couldn't read directory");
         for path in paths {
@@ -34,10 +31,7 @@ fn main() {
                     if file_name.contains(".jack") {
                         let contents = fs::read_to_string(path.path()).expect("Can't read file!");
                         let tree = create_program_tree(&contents);
-                        code_gen(tree);
-                        // let xml = tree.to_xml();
-                        // let xml_path = path.path().to_str().unwrap().replace(".jack", "test.xml");
-                        // let _ = fs::write(xml_path, xml);
+                        analyze(tree);
                     }
                 }
             }

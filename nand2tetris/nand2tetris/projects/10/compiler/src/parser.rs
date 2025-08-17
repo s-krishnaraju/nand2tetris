@@ -428,7 +428,7 @@ fn handle_term(parser: &mut TokenParser) -> ProgramElement {
             let constant = ProgramElement::Terminal(t);
             term.add(constant);
         }
-        Some(t) if t == Token::Symbol(Symbol::Minus) || t == Token::Symbol(Symbol::Negation) => {
+        Some(t) if t == Token::Symbol(Symbol::Minus) || t == Token::Symbol(Symbol::Not) => {
             // unaryOp term
             let unary = ProgramElement::Terminal(t);
             term.add(unary);
