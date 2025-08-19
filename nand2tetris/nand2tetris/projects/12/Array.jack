@@ -11,12 +11,15 @@
  * data types.
  */
 class Array {
+    field int addr;
 
     /** Constructs a new Array of the given size. */
     function Array new(int size) {
+        let addr = Memory.alloc(size);
     }
 
     /** Disposes this array. */
     method void dispose() {
+        do Memory.deAlloc(addr);
     }
 }
