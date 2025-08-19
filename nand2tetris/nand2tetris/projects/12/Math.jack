@@ -15,13 +15,31 @@ class Math {
 
     // Initializes the Math library.
     function void init() {
+        var int i, pwr;
+        let n  = 16;
+        let powersOfTwo = Array.new(n);
+        let i = 0; 
+        let pwr = 1;
+        while(i<n){
+           let powersOfTwo[i] = pwr;
+           let pwr = pwr + pwr;  
+           let i = i+1;
+        }
+        return;
     }
 
     /** Returns the product of x and y. 
      *  When a Jack compiler detects the multiplication operator '*'
      *  in an expression, it handles it by invoking this method. 
      *  Thus, in Jack, x * y and Math.multiply(x,y) return the same value. */
+     // 01000 8
+     // 00011 3
+     // add 8*1 00001
+     // then add 16 (8*2) since 00010
+     // 11000 24
     function int multiply(int x, int y) {
+           var int sum, i;
+           
     }
 
     /** Returns the integer part of x / y.
