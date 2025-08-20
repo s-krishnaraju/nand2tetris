@@ -9,6 +9,7 @@
  *  Note: Jack compilers implement multiplication and division
  *  using calls to OS functions in this class.
  */
+
 class Math {
     static int n;             // Number of num used for representing a two's complement integer
     static Array powersOfTwo; // Stores 2^0, 2^1, 2^2,..., 2^(n-1)
@@ -73,12 +74,8 @@ class Math {
             let bit = Math.getBit(y, i);
             if (bit = -1){
                 if (neg){
-                    do Output.printInt(-sum);
-                    do Output.println();
                     return -sum;
                 } else {
-                    do Output.printInt(sum);
-                    do Output.println();
                     return sum;
                 }
             } 
@@ -99,14 +96,12 @@ class Math {
      // 1000
      // 3   30-8*3 = 6  6-2*3   = 0
      // start at num greatest bin place where y*bin <= x 
+     // 32766/ (-32767) failing 
+     // Overflowing on 20761/10
     function int divide(int x, int y) {
         var boolean loop, neg;
-        var int res, tmp, last, i;
+        var int res, last, i, a, diff;
         var Array arr;
-        let arr = Array.new(15);
-        let loop = true;
-        let i = 0;
-        let arr[i] = y; 
 
         if(((x < 0) & (y < 0)) | ((x > 0) & (y > 0)) ){
             let neg = false;
@@ -117,37 +112,42 @@ class Math {
         let x = Math.abs(x);
         let y = Math.abs(y);
 
-        // ISSUE: We are overflowing like 32766/32766
+        let arr = Array.new(15);
+        let loop = true;
+        let i = 0;
+        let arr[i] = y; 
+
+        // failing on 20761/10 
         while(loop){
-            let tmp = arr[i];
-            if(~(tmp < x)){
+            let a = arr[i];
+            if((x-a) < y){
                 let loop = false;
             } else{
                // this is like multiplying y by 2^i at each loop
                // this is so we get the largest "i" y*2^i <= x
-                let y = tmp;
                 let i = i+1;
-                let arr[i] = y+y;
+                let arr[i] = a+a;
             }
         }
 
-        // now y is largest y w/ y <= x
+        // now a is largest a w/ a <= x
         let loop = true;
         let last = x;
         let res = 0;
         while(loop){
-            let tmp = last - arr[i];
-            if (tmp < 0){
+            let diff = last - arr[i];
+            if (diff < 0){
                 let i = i-1;
             } else {
-                let res = res + powersOfTwo[i];
-                let last = tmp; 
+                let res = res + powersOfTwo[i]; // what we multiplied y by 
+                let last = diff; 
             }
             if(i<0){
                 let loop = false;
             }
         }
-        if(neg){
+
+        if(neg & (~(res=0))){
             return -res;
         }else{
             return res;
@@ -155,7 +155,44 @@ class Math {
     }
 
     /** Returns the integer part of the square root of x. */
+    // y = sqrt(x) then we know that in 0 ... 9  there must be a num n such that n^2 = x and sqrt(x) = n
+    // we can use binary search to find that num
+
     function int sqrt(int x) {
+        var int l, r, m, sqr;
+        let l = 0;
+        let r = x;
+        
+        while(l<r){
+            do Output.printString("L: ");
+            do Output.printInt(l);
+            do Output.println();
+            do Output.printString("R: ");
+            do Output.printInt(r);
+            do Output.println();
+            // round down
+            // round down
+            let m = (l+r)/2;
+            do Output.printString("M: ");
+            do Output.printInt(m);
+            do Output.println();
+            let sqr = m*m;
+            if(sqr = x){
+                return m;
+            }        
+            if(sqr < x){
+               let l = m+1; 
+            }else{
+                let r = m;
+            }
+        }
+
+        let sqr = l*l;
+        if(sqr > x){
+            return l-1;
+        }else {
+            return l;
+        }
     }
 
     /** Returns the greater value. */
