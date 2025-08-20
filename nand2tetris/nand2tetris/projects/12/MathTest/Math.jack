@@ -100,13 +100,24 @@ class Math {
      // 3   30-8*3 = 6  6-2*3   = 0
      // start at num greatest bin place where y*bin <= x 
     function int divide(int x, int y) {
-        var boolean loop;
-        var int res, tmp, last,i;
+        var boolean loop, neg;
+        var int res, tmp, last, i;
         var Array arr;
         let arr = Array.new(15);
         let loop = true;
         let i = 0;
         let arr[i] = y; 
+
+        if(((x < 0) & (y < 0)) | ((x > 0) & (y > 0)) ){
+            let neg = false;
+        }else{
+            let neg = true;
+        }
+
+        let x = Math.abs(x);
+        let y = Math.abs(y);
+
+        // ISSUE: We are overflowing like 32766/32766
         while(loop){
             let tmp = arr[i];
             if(~(tmp < x)){
@@ -136,7 +147,11 @@ class Math {
                 let loop = false;
             }
         }
-        return res;
+        if(neg){
+            return -res;
+        }else{
+            return res;
+        }
     }
 
     /** Returns the integer part of the square root of x. */
