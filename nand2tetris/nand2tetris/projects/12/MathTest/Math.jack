@@ -158,24 +158,15 @@ class Math {
     // y = sqrt(x) then we know that in 0 ... 9  there must be a num n such that n^2 = x and sqrt(x) = n
     // we can use binary search to find that num
 
+    // 181 = sqrt(32767)
     function int sqrt(int x) {
         var int l, r, m, sqr;
         let l = 0;
-        let r = x;
+        let r = 181;
         
         while(l<r){
-            do Output.printString("L: ");
-            do Output.printInt(l);
-            do Output.println();
-            do Output.printString("R: ");
-            do Output.printInt(r);
-            do Output.println();
             // round down
-            // round down
-            let m = (l+r)/2;
-            do Output.printString("M: ");
-            do Output.printInt(m);
-            do Output.println();
+            let m = l + ((r-l)/2);
             let sqr = m*m;
             if(sqr = x){
                 return m;

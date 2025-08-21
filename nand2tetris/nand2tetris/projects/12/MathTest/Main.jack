@@ -33,9 +33,7 @@ class Main {
 //          do Output.println();
 //          do Output.printInt(Math.sqrt(28));
 //          do Output.println();
-          //do Output.printInt(Math.sqrt(32767));
-          do Output.printInt(20761/10);
-          do Output.println();
+          do Output.printInt(Math.sqrt(20761));
 //          let r[9] = Math.sqrt(32767);       // 181
 //        
 //        let r[10] = Math.min(345, 123);    // 123
