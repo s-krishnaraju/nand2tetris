@@ -158,7 +158,6 @@ class Math {
     // y = sqrt(x) then we know that in 0 ... 9  there must be a num n such that n^2 = x and sqrt(x) = n
     // we can use binary search to find that num
 
-    // 181 = sqrt(32767)
     function int sqrt(int x) {
         var int l, r, m, sqr;
         let l = 0;
@@ -204,19 +203,11 @@ class Math {
         }
     }
 
-    function int toNeg(int x){
-        let x = ~x;
-        let x = x + 1;
-        return x;
-    }
-
     /** Returns the absolute value of x. */
     function int abs(int x) {
         var int r; 
         if (x < 0){
-            let r = x - 1;
-            let r = ~r;
-            return r;
+            return -x
         } else {
             return x;
         }

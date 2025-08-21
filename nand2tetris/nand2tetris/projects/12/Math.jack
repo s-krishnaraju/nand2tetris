@@ -161,21 +161,11 @@ class Math {
     function int sqrt(int x) {
         var int l, r, m, sqr;
         let l = 0;
-        let r = x;
+        let r = 181;
         
         while(l<r){
-            do Output.printString("L: ");
-            do Output.printInt(l);
-            do Output.println();
-            do Output.printString("R: ");
-            do Output.printInt(r);
-            do Output.println();
             // round down
-            // round down
-            let m = (l+r)/2;
-            do Output.printString("M: ");
-            do Output.printInt(m);
-            do Output.println();
+            let m = l + ((r-l)/2);
             let sqr = m*m;
             if(sqr = x){
                 return m;
@@ -213,19 +203,11 @@ class Math {
         }
     }
 
-    function int toNeg(int x){
-        let x = ~x;
-        let x = x + 1;
-        return x;
-    }
-
     /** Returns the absolute value of x. */
     function int abs(int x) {
         var int r; 
         if (x < 0){
-            let r = x - 1;
-            let r = ~r;
-            return r;
+            return -x
         } else {
             return x;
         }
