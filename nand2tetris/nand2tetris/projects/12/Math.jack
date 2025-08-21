@@ -207,7 +207,7 @@ class Math {
     function int abs(int x) {
         var int r; 
         if (x < 0){
-            return -x
+            return -x;
         } else {
             return x;
         }
