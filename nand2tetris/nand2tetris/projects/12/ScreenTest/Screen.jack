@@ -8,6 +8,8 @@
  * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
  * the screen is indexed (0,0).
  */
+
+
 class Screen {
     static int SCREEN_START, END_ROW, END_COL;
     static boolean COLOR;
@@ -173,9 +175,38 @@ class Screen {
 
         return;
     }
-
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
-        return;
+                   
+
+   return;
+
     }
-}
+}    ...
+//  .....     
+// .../.\.
+// ../III\.
+// ..\/|\/.
+// ..//|\\
+// .//o|o\\
+//  \\/|\//
+//  //\|/\\
+//  \\/|\//
+//  //\|/\\
+//  \\/|\//
+//  //\|/\\
+//  \\/|\//
+//  //\|/\\
+//  \\o|o//       
+//   \\|//
+//    \V/ 
+//       /|
+//      / | 
+//   x /  | y
+//    /   |    
+//   /____|
+       z
+
+
+
+
