@@ -1,0 +1,181 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 512 rows (indexed 0..511, top to bottom)
+ * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+    static int SCREEN_START, END_ROW, END_COL;
+    static boolean COLOR;
+    static Array powersOfTwo; // Stores 2^0, 2^1, 2^2,..., 2^(n-1)
+
+
+    // one pixel is one bit
+    /** Initializes the Screen. */
+    function void init() {
+        var int i, pwr;
+        // each pixel is one bit
+        // so 16 pixels per word and 32*16 (512) per row
+        let END_ROW = 256;
+        let END_COL = 512; 
+        let SCREEN_START = 16384;
+        let COLOR = true;
+
+        let powersOfTwo = Array.new(16);
+        let pwr = 1;
+        let i = 0;
+        while(i<16){
+           let powersOfTwo[i] = pwr;
+           let pwr = pwr + pwr;  
+           let i = i+1;
+        }
+        return;
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() {
+        do Screen.fillRect(0,0,END_ROW,32, true);
+        return;
+    }
+
+    function void fillRect(int startRow, int startCol, int endRow, int endCol, boolean color){
+        var int row, col, offset; 
+        let row = startRow;
+        let col = startCol;
+        let offset = row*32;
+        while(~(row > endRow)){
+            while(col < endCol){
+                // colors 16 pixels
+                let SCREEN_START[offset+col] = color;
+                let col = col + 1;
+            }
+            let offset = offset + 32;
+            let col = startCol;
+            let row = row+1;
+        }
+        return;
+    }
+
+   /** Sets the current color, to be used for all subsequent drawXXX commands.
+    *  Black is represented by true, white by false. */
+   function void setColor(boolean b) {
+       let COLOR = b;
+       return;
+   }
+
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) {
+       var int offset, xmod, divx, bitmask, pixels; 
+       let divx = x/16;
+       let xmod = x - (divx*16);
+       let offset = y*32 + divx;
+       let bitmask = powersOfTwo[xmod];
+       
+       if(COLOR){
+           let pixels = SCREEN_START[offset] | bitmask;
+       }else {
+           let bitmask = ~bitmask;
+           let pixels = SCREEN_START[offset] & bitmask;
+       }
+       let SCREEN_START[offset] = pixels;
+       return;
+    }
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        var boolean ydir; // down = true, up = false
+        var int a,b,dx,dy, diff, tmp;
+        let dx = Math.abs(x2-x1);
+        let dy = Math.abs(y2-y1);
+        let a = 0;
+        let b = 0;
+        let diff = 0;
+        // make x1 < x2
+        if (x1 > x2){
+            let tmp = x1;
+            let x1 = x2;
+            let x2 = tmp;
+            let tmp = y1;
+            let y1 = y2;
+            let y2 = tmp;
+        }
+        let ydir = y1 < y2;
+        
+        while((a<dx) | (b<dy)) {
+            if(ydir){
+                do Screen.drawPixel(x1 + a, y1 +b);
+            }else{ 
+                do Screen.drawPixel(x1 + a, y1-b);
+            }
+            if(diff < 0){
+                if(~(a=dx)){
+                    let a = a+1;
+                }
+                let diff = diff + dy;
+            }else {
+                if(~(b=dy)){
+                    let b = b+1;
+                }
+                let diff = diff - dx;
+            }
+        }
+        return;
+    }
+
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     *  and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int tmp,divx,modx,startx, offset, bitmask, i;
+        if(x1 > x2){
+            let tmp = x1;
+            let x1 = x2;
+            let x2 = tmp;
+        }
+
+        if(y1 > y2){
+            let tmp = y1;
+            let y1 = y2;
+            let y2 = tmp;
+        }
+
+        let divx = x1/16;
+        let modx = x1 - (divx*16);
+        let bitmask = ~(powersOfTwo[modx]-1);
+        let startx = divx + 1;
+
+        let i = y1;
+        let offset = y1*32 + divx;
+        while(~(i > y2)){
+            let SCREEN_START[offset] = bitmask;
+            let i = i+1;
+            let offset = offset + 32;
+        }
+
+        let divx = x2/16; // endX;
+        let modx = x2 - (divx*16); // color from 0 to modX
+        let bitmask = (powersOfTwo[modx]-1) | powersOfTwo[modx];
+
+        let i = y1;
+        let offset = y1*32 + divx;
+        while(~(i > y2)){
+            let SCREEN_START[offset] = bitmask;
+            let i = i+1;
+            let offset = offset + 32;
+        }
+        // we need to account for differences within the word (16pixels) before we draw our rect
+        // so we handle that above
+        do Screen.fillRect(y1,startx,y2,divx,COLOR);
+
+        return;
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x, int y, int r) {
+        return;
+    }
+}
