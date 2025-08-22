@@ -132,7 +132,7 @@ class Screen {
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      *  and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int tmp,divx,modx,startx, offset, bitmask, i;
+        var int tmp,divx,modx,startx, offset, onbitmask,offbitmask, i;
         if(x1 > x2){
             let tmp = x1;
             let x1 = x2;
@@ -147,28 +147,40 @@ class Screen {
 
         let divx = x1/16;
         let modx = x1 - (divx*16);
-        let bitmask = ~(powersOfTwo[modx]-1);
+        let onbitmask = ~(powersOfTwo[modx]-1);
+        let offbitmask = ~onbitmask;
         let startx = divx + 1;
-
         let i = y1;
+
         let offset = y1*32 + divx;
+        // we need to handle color here
         while(~(i > y2)){
-            let SCREEN_START[offset] = bitmask;
+            if (COLOR){
+                let SCREEN_START[offset] = onbitmask | SCREEN_START[offset];
+            }else {
+                let SCREEN_START[offset] = offbitmask | SCREEN_START[offset];
+            }
             let i = i+1;
             let offset = offset + 32;
         }
 
         let divx = x2/16; // endX;
         let modx = x2 - (divx*16); // color from 0 to modX
-        let bitmask = (powersOfTwo[modx]-1) | powersOfTwo[modx];
+        let onbitmask = (powersOfTwo[modx]-1) | powersOfTwo[modx];
+        let offbitmask = ~onbitmask;
 
         let i = y1;
         let offset = y1*32 + divx;
         while(~(i > y2)){
-            let SCREEN_START[offset] = bitmask;
+            if (COLOR){
+                let SCREEN_START[offset] = onbitmask | SCREEN_START[offset];
+            }else {
+                let SCREEN_START[offset] = offbitmask | SCREEN_START[offset];
+            }
             let i = i+1;
             let offset = offset + 32;
         }
+
         // we need to account for differences within the word (16pixels) before we draw our rect
         // so we handle that above
         do Screen.fillRect(y1,startx,y2,divx,COLOR);
@@ -177,36 +189,24 @@ class Screen {
     }
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
-                   
+        var int dy,dx,rsqr,x1,x2,top,bot;
+        let dy = 0;
+        let rsqr = r*r;
 
-   return;
-
+        while(~(dy=r)){
+            let dx = Math.sqrt(rsqr - (dy*dy));
+            let x1 = x-dx;
+            let x2 = x+dx;
+            let top = y+dy;
+            let bot = y-dy;
+            do Screen.drawLine(x1, top, x2, top);
+            do Screen.drawLine(x1, bot, x2, bot);
+            let dy = dy + 1;
+        }
+        
+        return;
     }
-}    ...
-//  .....     
-// .../.\.
-// ../III\.
-// ..\/|\/.
-// ..//|\\
-// .//o|o\\
-//  \\/|\//
-//  //\|/\\
-//  \\/|\//
-//  //\|/\\
-//  \\/|\//
-//  //\|/\\
-//  \\/|\//
-//  //\|/\\
-//  \\o|o//       
-//   \\|//
-//    \V/ 
-//       /|
-//      / | 
-//   x /  | y
-//    /   |    
-//   /____|
-       z
-
+}   
 
 
 
