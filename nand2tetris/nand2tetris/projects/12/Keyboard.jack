@@ -68,7 +68,6 @@ class Keyboard {
         let currLen = 0;
         let s = String.new(maxLen);
 
-        do Output.printString("HIHIIHIHI");
         do Output.printString(message);
         while(true){
             let c = Keyboard.getCharPressed();
