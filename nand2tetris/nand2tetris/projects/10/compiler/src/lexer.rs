@@ -7,7 +7,7 @@ pub struct Lexer {
     input: Vec<u8>,
     start_pos: usize,
     read_pos: usize,
-    line_num: u8,
+    line_num: usize,
     pub tokens: VecDeque<Token>,
 }
 
