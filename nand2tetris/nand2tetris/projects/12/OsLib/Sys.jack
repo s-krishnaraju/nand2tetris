@@ -10,11 +10,13 @@ class Sys {
 
     /** Performs all the initializations required by the OS. */
     function void init() {
-        do Screen.init();
-        do Math.init();
-        do Keyboard.init();
         do Memory.init();
+
+        do Math.init();
+        do Screen.init();
+        do Keyboard.init();
         do Output.init();
+
         do Main.main();
     }
 
@@ -43,7 +45,7 @@ class Sys {
     /** Displays the given error code in the form "ERR<errorCode>",
      *  and halts the program's execution. */
     function void error(int errorCode) {
-        do Output.String("ERR: ");
+        do Output.printString("ERR: ");
         do Output.printInt(errorCode);
         do Sys.halt();
         return;

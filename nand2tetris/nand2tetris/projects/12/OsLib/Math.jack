@@ -92,12 +92,7 @@ class Math {
      *  When a Jack compiler detects the division operator '/'
      *  an an expression, it handles it by invoking this method.
      *  Thus, x/y and Math.divide(x,y) return the same value. */
-     // 30
-     // 1000
-     // 3   30-8*3 = 6  6-2*3   = 0
-     // start at num greatest bin place where y*bin <= x 
-     // 32766/ (-32767) failing 
-     // Overflowing on 20761/10
+
     function int divide(int x, int y) {
         var boolean loop, neg;
         var int res, last, i, a, diff;
@@ -117,7 +112,6 @@ class Math {
         let i = 0;
         let arr[i] = y; 
 
-        // failing on 20761/10 
         while(loop){
             let a = arr[i];
             if((x-a) < y){
@@ -146,6 +140,9 @@ class Math {
                 let loop = false;
             }
         }
+
+
+        do arr.dispose();
 
         if(neg & (~(res=0))){
             return -res;
