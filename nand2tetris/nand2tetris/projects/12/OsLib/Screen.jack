@@ -40,7 +40,7 @@ class Screen {
 
     /** Erases the entire screen. */
     function void clearScreen() {
-        do Screen.fillRect(0,0,END_ROW,32, true);
+        do Screen.fillRect(0,0,END_ROW-1,32, false);
         return;
     }
 
@@ -145,6 +145,8 @@ class Screen {
             let y2 = tmp;
         }
 
+        // can use &15 to get first 4 bits and see mod
+        // then look at rest of bits for divx?
         let divx = x1/16;
         let modx = x1 - (divx*16);
         let onbitmask = ~(powersOfTwo[modx]-1);
