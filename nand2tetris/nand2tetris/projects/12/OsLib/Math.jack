@@ -88,6 +88,42 @@ class Math {
         }
     }
 
+    // we want to recursively divide x/y so we would start from most sig bit and  
+    function r_divide(int x, int y){
+       var boolean pos;  
+       var int q, twoy, remainingx;
+       // sign check should only run once
+       if (x<0 | y<0){
+        let pos = ((x<0)&(y<0)) | ((x>0)&(y>0));
+        let x = Math.abs(x);
+        let y = Math.abs(y);
+       } else{
+        let pos = true;
+       }
+
+       if(y > x){
+        return 0;
+       }
+
+       let twoy = y+y;
+       // this is quotient
+       let q = Math.r_divide(x, twoy);
+       let remainingx = x - twoy*q; 
+
+       // we need to increment quotient since we are decrementing y by a factor of two
+       let q = q+q; 
+       // y goes into remaining x
+       if(y>remainingx){
+        let q = q+1;
+       }
+       
+       if (pos){
+        return q;
+       } else{
+        return -q;
+       }
+
+    }
     /** Returns the integer part of x / y.
      *  When a Jack compiler detects the division operator '/'
      *  an an expression, it handles it by invoking this method.
