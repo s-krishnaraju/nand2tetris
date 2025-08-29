@@ -168,95 +168,6 @@ add
 pop local 2
 goto WHILE_START2
 label WHILE_END2
-function Math.recursiveDivide 4
-push argument 0
-push constant 0
-lt
-push argument 1
-or
-push constant 0
-lt
-not
-if-goto IF_END8
-push argument 0
-push constant 0
-lt
-push argument 1
-push constant 0
-lt
-and
-push argument 0
-push constant 0
-gt
-push argument 1
-push constant 0
-gt
-and
-or
-pop local 0
-push argument 0
-call Math.abs 1
-pop argument 0
-push argument 1
-call Math.abs 1
-pop argument 1
-goto ELSE_END8
-label IF_END8
-push constant 1
-neg
-pop local 0
-label ELSE_END8
-push argument 1
-push argument 0
-gt
-not
-if-goto IF_END9
-push constant 0
-return
-goto ELSE_END9
-label IF_END9
-label ELSE_END9
-push argument 1
-push argument 1
-add
-pop local 2
-push argument 0
-push local 2
-call Math.recusiveDivide 2
-pop local 1
-push argument 0
-push local 2
-push local 1
-call Math.multiply 2
-sub
-pop local 3
-push local 1
-push local 1
-add
-pop local 1
-push argument 1
-push local 3
-gt
-not
-if-goto IF_END10
-push local 1
-push constant 1
-add
-pop local 1
-goto ELSE_END10
-label IF_END10
-label ELSE_END10
-push local 0
-not
-if-goto IF_END11
-push local 1
-return
-goto ELSE_END11
-label IF_END11
-push local 1
-neg
-return
-label ELSE_END11
 function Math.divide 8
 push argument 0
 push constant 0
@@ -274,15 +185,15 @@ gt
 and
 or
 not
-if-goto IF_END12
+if-goto IF_END8
 push constant 0
 pop local 1
-goto ELSE_END12
-label IF_END12
+goto ELSE_END8
+label IF_END8
 push constant 1
 neg
 pop local 1
-label ELSE_END12
+label ELSE_END8
 push argument 0
 call Math.abs 1
 pop argument 0
@@ -321,11 +232,11 @@ sub
 push argument 1
 lt
 not
-if-goto IF_END13
+if-goto IF_END9
 push constant 0
 pop local 0
-goto ELSE_END13
-label IF_END13
+goto ELSE_END9
+label IF_END9
 push local 4
 push constant 1
 add
@@ -340,7 +251,7 @@ pop temp 0
 pop pointer 1
 push temp 0
 pop that 0
-label ELSE_END13
+label ELSE_END9
 goto WHILE_START3
 label WHILE_END3
 push constant 1
@@ -366,13 +277,13 @@ push local 6
 push constant 0
 lt
 not
-if-goto IF_END14
+if-goto IF_END10
 push local 4
 push constant 1
 sub
 pop local 4
-goto ELSE_END14
-label IF_END14
+goto ELSE_END10
+label IF_END10
 push local 2
 push local 4
 push static 1
@@ -383,17 +294,17 @@ add
 pop local 2
 push local 6
 pop local 3
-label ELSE_END14
+label ELSE_END10
 push local 4
 push constant 0
 lt
 not
-if-goto IF_END15
+if-goto IF_END11
 push constant 0
 pop local 0
-goto ELSE_END15
-label IF_END15
-label ELSE_END15
+goto ELSE_END11
+label IF_END11
+label ELSE_END11
 goto WHILE_START4
 label WHILE_END4
 push local 7
@@ -406,15 +317,15 @@ eq
 not
 and
 not
-if-goto IF_END16
+if-goto IF_END12
 push local 2
 neg
 return
-goto ELSE_END16
-label IF_END16
+goto ELSE_END12
+label IF_END12
 push local 2
 return
-label ELSE_END16
+label ELSE_END12
 function Math.sqrt 4
 push constant 0
 pop local 0
@@ -442,26 +353,26 @@ push local 3
 push argument 0
 eq
 not
-if-goto IF_END17
+if-goto IF_END13
 push local 2
 return
-goto ELSE_END17
-label IF_END17
-label ELSE_END17
+goto ELSE_END13
+label IF_END13
+label ELSE_END13
 push local 3
 push argument 0
 lt
 not
-if-goto IF_END18
+if-goto IF_END14
 push local 2
 push constant 1
 add
 pop local 0
-goto ELSE_END18
-label IF_END18
+goto ELSE_END14
+label IF_END14
 push local 2
 pop local 1
-label ELSE_END18
+label ELSE_END14
 goto WHILE_START5
 label WHILE_END5
 push local 0
@@ -472,53 +383,53 @@ push local 3
 push argument 0
 gt
 not
-if-goto IF_END19
+if-goto IF_END15
 push local 0
 push constant 1
 sub
 return
-goto ELSE_END19
-label IF_END19
+goto ELSE_END15
+label IF_END15
 push local 0
 return
-label ELSE_END19
+label ELSE_END15
 function Math.max 0
 push argument 0
 push argument 1
 gt
 not
-if-goto IF_END20
+if-goto IF_END16
 push argument 0
 return
-goto ELSE_END20
-label IF_END20
+goto ELSE_END16
+label IF_END16
 push argument 1
 return
-label ELSE_END20
+label ELSE_END16
 function Math.min 0
 push argument 0
 push argument 1
 lt
 not
-if-goto IF_END21
+if-goto IF_END17
 push argument 0
 return
-goto ELSE_END21
-label IF_END21
+goto ELSE_END17
+label IF_END17
 push argument 1
 return
-label ELSE_END21
+label ELSE_END17
 function Math.abs 1
 push argument 0
 push constant 0
 lt
 not
-if-goto IF_END22
+if-goto IF_END18
 push argument 0
 neg
 return
-goto ELSE_END22
-label IF_END22
+goto ELSE_END18
+label IF_END18
 push argument 0
 return
-label ELSE_END22
+label ELSE_END18

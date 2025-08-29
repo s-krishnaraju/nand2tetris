@@ -30,11 +30,9 @@ class Sys {
     function void wait(int duration) {
         var int x, i;
         while(duration > 0){
-            // do some random 1ms computation
-            let i = 13;
+            let i = 80;
             while(i>0){
-              let x = 100/20;
-              let i = i-1;
+              let i = i - 1;
             }
 
             let duration = duration - 1; 
