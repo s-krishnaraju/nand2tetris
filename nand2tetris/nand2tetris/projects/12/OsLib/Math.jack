@@ -105,7 +105,7 @@ class Math {
 
        let twoy = y+y;
        // this is quotient
-       let q = Math.recusiveDivide(x, twoy);
+       let q = Math.recursiveDivide(x, twoy);
        let remainingx = x - (twoy*q); 
 
        // we need to increase quotient by factor of two since we are decrementing y by a factor of two

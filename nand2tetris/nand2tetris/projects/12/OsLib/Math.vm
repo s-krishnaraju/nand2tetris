@@ -222,7 +222,7 @@ add
 pop local 2
 push argument 0
 push local 2
-call Math.recusiveDivide 2
+call Math.recursiveDivide 2
 pop local 1
 push argument 0
 push local 2

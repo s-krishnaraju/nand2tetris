@@ -89,9 +89,10 @@ class Screen {
     }
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    // optimize drawing horizontal lines
     function void drawLine(int x1, int y1, int x2, int y2) {
         var boolean ydir; // down = true, up = false
-        var int a,b,dx,dy, diff, tmp;
+        var int a,b,dx,dy, diff, tmp, modx, onbitmask, offbitmask, divx;
         let dx = Math.abs(x2-x1);
         let dy = Math.abs(y2-y1);
         let a = 0;
@@ -106,7 +107,21 @@ class Screen {
             let y1 = y2;
             let y2 = tmp;
         }
+
+        // handle horizontal line
+//        if(y1 = y2){
+//            let modx = x1&15;
+//            let divx = x1 / 16;
+//            // turns on bits at pixel to end of word 
+//            let onbitmask = ~(powersOfTwo[modx]-1);
+//            // 
+//            let offbitmask = ~onbitmask;
+//            let offset = y1*32 + divx;
+//        }
+
         let ydir = y1 < y2;
+
+         
         
         while((a<dx) | (b<dy)) {
             if(ydir){
@@ -132,60 +147,68 @@ class Screen {
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      *  and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int tmp,divx,modx,startx, offset, onbitmask,offbitmask, i;
-        if(x1 > x2){
-            let tmp = x1;
-            let x1 = x2;
-            let x2 = tmp;
-        }
+        var int divx, modx1, modx2, startx, endx, offset, i;
+        var int onbitmask1, offbitmask1, onbitmask2,offbitmask2;
 
-        if(y1 > y2){
-            let tmp = y1;
-            let y1 = y2;
-            let y2 = tmp;
-        }
 
-        // can use &15 to get first 4 bits and see mod
-        // then look at rest of bits for divx?
-        let divx = x1/16;
-        let modx = x1 - (divx*16);
-        let onbitmask = ~(powersOfTwo[modx]-1);
-        let offbitmask = ~onbitmask;
-        let startx = divx + 1;
+        // 512 pixels per row, so 32 cols (16 pixels per col/word) and 256 rows 
+        // so 8192 memory words used for the screen
+
+        let modx1 = x1 & 15;
+        let startx = x1/16; 
+        // turns on bits from x1 to end of col
+        let onbitmask1 = ~(powersOfTwo[modx1]-1);
+        let offbitmask1 = ~onbitmask1;
+
+        let modx2 = x2 & 15;
+        let endx = x2/16; 
+        // turns on bits from start of col to x2
+        let onbitmask2 = (powersOfTwo[modx2]-1) | powersOfTwo[modx2];
+        let offbitmask2 = ~onbitmask2;
+        
+        // handle if both are in same col
+        if(startx = endx){
+            let onbitmask1 = onbitmask1 & onbitmask2;
+            let offbitmask1 = ~onbitmask1;
+        }
+        
+
+        // handle first col
         let i = y1;
-
-        let offset = y1*32 + divx;
-        // we need to handle color here
+        let offset = y1*32 + startx;
         while(~(i > y2)){
             if (COLOR){
-                let SCREEN_START[offset] = onbitmask | SCREEN_START[offset];
+                let SCREEN_START[offset] = onbitmask1 | SCREEN_START[offset];
             }else {
-                let SCREEN_START[offset] = offbitmask | SCREEN_START[offset];
+                let SCREEN_START[offset] = offbitmask1 & SCREEN_START[offset]; 
             }
             let i = i+1;
             let offset = offset + 32;
         }
 
-        let divx = x2/16; // endX;
-        let modx = x2 - (divx*16); // color from 0 to modX
-        let onbitmask = (powersOfTwo[modx]-1) | powersOfTwo[modx];
-        let offbitmask = ~onbitmask;
+        // if both are in same col then we drew it already
+        if(startx = endx) {
+            return;
+        }
 
+
+        // handle last col
         let i = y1;
-        let offset = y1*32 + divx;
+        let offset = y1*32 + endx;
         while(~(i > y2)){
             if (COLOR){
-                let SCREEN_START[offset] = onbitmask | SCREEN_START[offset];
+                let SCREEN_START[offset] = onbitmask2 | SCREEN_START[offset];
             }else {
-                let SCREEN_START[offset] = offbitmask | SCREEN_START[offset];
+                let SCREEN_START[offset] = offbitmask2 & SCREEN_START[offset];
             }
             let i = i+1;
             let offset = offset + 32;
         }
 
-        // we need to account for differences within the word (16pixels) before we draw our rect
-        // so we handle that above
-        do Screen.fillRect(y1,startx,y2,divx,COLOR);
+        // fill in cols btwn first and last 
+        if((startx+1) < endx){
+            do Screen.fillRect(y1,startx+1,y2,endx, COLOR);
+        }
 
         return;
     }
